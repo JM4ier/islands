@@ -1,0 +1,14 @@
+[package]
+name = "islands"
+version = "0.1.0"
+authors = ["Jonas Maier <1.jmaier.3@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+fuss = "0.2.2"
+nalgebra = "0.21.1"
+png = "0.16.7"
+rand = "0.7.3"
+
