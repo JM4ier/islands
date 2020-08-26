@@ -20,7 +20,9 @@ impl Map {
         }
     }
 
-    pub fn map(&mut self, fun: fn(f32) -> f32) {
+    pub fn map<F>(&mut self, fun: F) 
+    where F: Fn(f32) -> f32 
+    {
         for x in 0..self.width() {
             for y in 0..self.height() {
                 self[(x, y)] = fun(self[(x, y)]);

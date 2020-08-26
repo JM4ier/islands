@@ -9,7 +9,7 @@ use map::Map;
 use obj::ObjWriter;
 
 fn main() -> std::io::Result<()> {
-    let size = 500;
+    let size = 1000;
     let map = generate_map(size, size, true);
     let mut flow_map = wet::create_flow_map(&map, size * size);
     flow_map.map(|h| h.powf(0.3));
@@ -29,7 +29,7 @@ fn main() -> std::io::Result<()> {
 }
 
 fn generate_map(width: usize, height: usize, enable_edge_scaling: bool) -> Map {
-    let iter = 4;
+    let iter = 8;
     let persistence = 0.3;
     let scale = 5.02 / width as f32;
 
@@ -75,8 +75,8 @@ fn generate_map(width: usize, height: usize, enable_edge_scaling: bool) -> Map {
 
     for x in 0..width {
         for y in 0..height {
-            let height = simplex.sum_octave_2d(iter, x as _, y as _, persistence, scale) + mountain(x, y);
-            map[(x, y)] = scaling(height);
+            let height = simplex.sum_octave_2d(iter, x as _, y as _, persistence, scale);
+            map[(x, y)] = scaling(height) * mountain(x, y);
             if enable_edge_scaling {
                 map[(x, y)] *= edge_scaling(x, y);
             }
