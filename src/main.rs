@@ -3,7 +3,9 @@ use std::fs::File;
 mod geometry;
 mod obj;
 mod map;
-mod wet;
+mod river;
+mod flow;
+mod lake;
 
 use map::Map;
 use obj::ObjWriter;
@@ -11,7 +13,7 @@ use obj::ObjWriter;
 fn main() -> std::io::Result<()> {
     let size = 800;
     let map = generate_map(size, size, true);
-    let mut flow_map = wet::create_flow_map(&map, size * size);
+    let mut flow_map = river::create_flow_map(&map, size * size);
     flow_map.map(|h| h.powf(0.3));
 
     // exporting terrain
