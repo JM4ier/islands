@@ -36,7 +36,7 @@ pub fn create_flow_map(map: &Map, sources: usize) -> Map {
 
     for x in range..(width-range) {
         for y in range..(height-range) {
-            if (x, y) == next_target(map, range, x, y) && flow_map[(x, y)] > 0.0 {
+            if (x, y) == next_target(map, range, x, y) && flow_map[(x, y)] > 100.0 {
                 lake_origins.push((x, y, flow_map[(x, y)]));
             }
         }
@@ -44,7 +44,7 @@ pub fn create_flow_map(map: &Map, sources: usize) -> Map {
 
     println!("{} lake origins", lake_origins.len());
 
-    let lakes = lake_map(map, &lake_origins, 10.0, range);
+    let lakes = lake_map(map, &lake_origins, 20.0, range);
     let (_, max) = flow_map.minmax();
 
     for x in 0..width {
@@ -77,6 +77,9 @@ fn lake_map(map: &Map, lake_origins: &[(usize, usize, f32)], ocean: f32, range: 
     let width = map.width();
     let height = map.height();
 
+    let mut lake_origins: Vec<_> = lake_origins.iter().map(|&(x, y, z)| Point{ x, y, z }).collect();
+    lake_origins.sort();
+
     let mut lake_map = Map::new(width, height);
 
     let (min_terrain, _) = map.minmax();
@@ -102,9 +105,7 @@ fn lake_map(map: &Map, lake_origins: &[(usize, usize, f32)], ocean: f32, range: 
             lake_map[(x, y)] > 0.0
         };
 
-        enq(&mut pq, &mut lake_map, origin.0, origin.1);
-
-        let lake_floor = origin.2;
+        enq(&mut pq, &mut lake_map, origin.x, origin.y);
 
         while let Some(point) = pq.pop() {
             let Point {x, y, z} = point;
@@ -127,12 +128,12 @@ fn lake_map(map: &Map, lake_origins: &[(usize, usize, f32)], ocean: f32, range: 
 
         }
 
-        let (min, _) = lake_map.minmax();
-        let depth = -1.0 - min;
+        let (min, max) = lake_map.minmax();
+        let (max, min) = (-1.0 - min, -1.0 - max);
 
         lake_map.map(|h| {
             match h {
-                h if h < -1.0 => (1.0 - (-1.0 - h) / depth),
+                h if h < -1.0 => (1.0 - (-1.0 - h - min) / (max-min)),
                 h if h <  0.0 => 0.0,
                 h => h,
             }

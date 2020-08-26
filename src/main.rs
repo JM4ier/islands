@@ -9,7 +9,7 @@ use map::Map;
 use obj::ObjWriter;
 
 fn main() -> std::io::Result<()> {
-    let size = 1000;
+    let size = 800;
     let map = generate_map(size, size, true);
     let mut flow_map = wet::create_flow_map(&map, size * size);
     flow_map.map(|h| h.powf(0.3));
@@ -29,7 +29,7 @@ fn main() -> std::io::Result<()> {
 }
 
 fn generate_map(width: usize, height: usize, enable_edge_scaling: bool) -> Map {
-    let iter = 8;
+    let iter = 16;
     let persistence = 0.3;
     let scale = 5.02 / width as f32;
 
