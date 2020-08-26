@@ -20,64 +20,24 @@ impl Map {
         }
     }
 
-    pub fn flow_map(&self, sources: usize) -> Self {
-        let width = self.width();
-        let height = self.height();
-        let mut flow_map = Self::new(width, height);
-
-        let random_position = || (rand::random::<usize>() % width, rand::random::<usize>() % height);
-        let mut brush = |x, y| {
-            flow_map[(x, y)] += 1.0;
-        };
-
-        let range = 4;
-
-        for _ in 0..sources {
-            let (mut x, mut y) = random_position();
-            loop {
-                brush(x, y);
-
-                let mut nx = x;
-                let mut ny = y;
-                let mut lowest = std::f32::MAX;
-                
-                if x < range || x >= width-range || y < range || y >= height-range {
-                    break;
-                }
-
-                for px in (x-range)..=(x+range) {
-                    for py in (y-range)..=(y+range) {
-                        if (px-x)*(px-x) + (py-y)*(py-y) > range*range {
-                            continue;
-                        }
-
-                        let height = self[(px, py)];
-                        if height < lowest {
-                            lowest = height;
-                            nx = px;
-                            ny = py;
-                        }
-                    }
-                }
-
-                if x == nx && y == ny {
-                    break;
-                }
-
-                x = nx;
-                y = ny;
-            }
-        }
-
-        flow_map
-    }
-
     pub fn map(&mut self, fun: fn(f32) -> f32) {
         for x in 0..self.width() {
             for y in 0..self.height() {
                 self[(x, y)] = fun(self[(x, y)]);
             }
         }
+    }
+
+    pub fn minmax(&self) -> (f32, f32) {
+        let mut min = std::f32::MAX;
+        let mut max = std::f32::MIN;
+        for x in 0..self.width() {
+            for y in 0..self.height() {
+                min = min.min(self[(x, y)]);
+                max = max.max(self[(x, y)]);
+            } 
+        }
+        (min, max)
     }
 }
 
@@ -104,14 +64,7 @@ impl Map{
 
         let mut buffer = vec![0u8; self.width() * self.height()];
 
-        let mut min = std::f32::MAX;
-        let mut max = std::f32::MIN;
-        for x in 0..self.width() {
-            for y in 0..self.height() {
-                min = min.min(self[(x, y)]);
-                max = max.max(self[(x, y)]);
-            } 
-        }
+        let (min, max) = self.minmax();
 
         for x in 0..self.width() {
             for y in 0..self.height() {
