@@ -49,9 +49,7 @@ pub fn create_flow_map(map: &Map, sources: usize) -> Map {
 
     for x in 0..width {
         for y in 0..height {
-            if lakes[(x, y)] > 0.0 {
-                flow_map[(x, y)] = lakes[(x, y)] * max;
-            }
+            flow_map[(x, y)] = flow_map[(x, y)].max(lakes[(x, y)] * max);
         }
     }
 
@@ -81,6 +79,17 @@ fn lake_map(map: &Map, lake_origins: &[(usize, usize, f32)], ocean: f32, range: 
 
     let mut lake_map = Map::new(width, height);
 
+    let (min_terrain, _) = map.minmax();
+
+    for x in 0..width {
+        for y in 0..height {
+            let z = map[(x, y)];
+            if z < ocean {
+                lake_map[(x, y)] = (ocean - z) / (ocean - min_terrain);
+            }
+        }
+    }
+
     let point = |x, y| Point{x, y, z: map[(x, y)]};
 
     for origin in lake_origins.iter() {
@@ -95,9 +104,11 @@ fn lake_map(map: &Map, lake_origins: &[(usize, usize, f32)], ocean: f32, range: 
 
         enq(&mut pq, &mut lake_map, origin.0, origin.1);
 
+        let lake_floor = origin.2;
+
         while let Some(point) = pq.pop() {
             let Point {x, y, z} = point;
-            lake_map[(x, y)] = -2.0;
+            lake_map[(x, y)] = -1.0 - z;
 
             if z < ocean || x < range || x >= width-range || y < range || y >= height-range {
                 break;
@@ -114,12 +125,14 @@ fn lake_map(map: &Map, lake_origins: &[(usize, usize, f32)], ocean: f32, range: 
                     break;
             }
 
-            draw_line(&mut lake_map, x as _, y as _, nx as _, ny as _, |_| -2.0);
         }
+
+        let (min, _) = lake_map.minmax();
+        let depth = -1.0 - min;
 
         lake_map.map(|h| {
             match h {
-                h if h < -1.0 => 1.0,
+                h if h < -1.0 => (1.0 - (-1.0 - h) / depth),
                 h if h <  0.0 => 0.0,
                 h => h,
             }

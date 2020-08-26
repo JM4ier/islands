@@ -36,7 +36,7 @@ fn generate_map(width: usize, height: usize, enable_edge_scaling: bool) -> Map {
     let simplex = fuss::Simplex::new();
     let mut map = Map::new(width, height);
 
-    let scaling = |h: f32| (h + 1.0) * 16.0;
+    let scaling = |h: f32| (h + 1.06) * 16.0;
 
     let edge_scaling = |x: usize, y: usize| {
         let pow = 8.5;
