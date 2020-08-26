@@ -21,7 +21,7 @@ pub fn create_flow_map(map: &Map, sources: usize) -> Map {
 
             let (nx, ny) = next_target(map, range, x, y);
 
-            draw_line(&mut flow_map, x as _, y as _, nx as _, ny as _);
+            draw_line(&mut flow_map, x as _, y as _, nx as _, ny as _, |h| h + 1.0);
 
             if x == nx && y == ny {
                 break;
@@ -37,20 +37,20 @@ pub fn create_flow_map(map: &Map, sources: usize) -> Map {
     for x in range..(width-range) {
         for y in range..(height-range) {
             if (x, y) == next_target(map, range, x, y) && flow_map[(x, y)] > 0.0 {
-                lake_origins.push((x, y));
+                lake_origins.push((x, y, flow_map[(x, y)]));
             }
         }
     }
 
     println!("{} lake origins", lake_origins.len());
 
-    let lakes = lake_map(map, &lake_origins, 10.0);
+    let lakes = lake_map(map, &lake_origins, 10.0, range);
     let (_, max) = flow_map.minmax();
 
     for x in 0..width {
         for y in 0..height {
             if lakes[(x, y)] > 0.0 {
-                flow_map[(x, y)] = max;
+                flow_map[(x, y)] = lakes[(x, y)] * max;
             }
         }
     }
@@ -75,7 +75,7 @@ impl Ord for Point {
     }
 }
 
-fn lake_map(map: &Map, lake_origins: &[(usize, usize)], ocean: f32) -> Map {
+fn lake_map(map: &Map, lake_origins: &[(usize, usize, f32)], ocean: f32, range: usize) -> Map {
     let width = map.width();
     let height = map.height();
 
@@ -85,7 +85,7 @@ fn lake_map(map: &Map, lake_origins: &[(usize, usize)], ocean: f32) -> Map {
 
     for origin in lake_origins.iter() {
         let mut pq = BinaryHeap::new();
-        let mut enq = |pq: &mut BinaryHeap<Point>, lake_map: &mut Map, x, y| {
+        let enq = |pq: &mut BinaryHeap<Point>, lake_map: &mut Map, x, y| {
             if lake_map[(x, y)] == 0.0 {
                 pq.push(point(x, y));
                 lake_map[(x, y)] = -1.0;
@@ -99,33 +99,31 @@ fn lake_map(map: &Map, lake_origins: &[(usize, usize)], ocean: f32) -> Map {
             let Point {x, y, z} = point;
             lake_map[(x, y)] = -2.0;
 
-            if z < ocean {
+            if z < ocean || x < range || x >= width-range || y < range || y >= height-range {
                 break;
             }
 
-            if x > 0 && enq(&mut pq, &mut lake_map, x-1, y) {
-                break;
+            let (nx, ny) = next_target(map, range, x, y);
+
+            if enq(&mut pq, &mut lake_map, x-1, y) ||
+               enq(&mut pq, &mut lake_map, x+1, y) ||
+               enq(&mut pq, &mut lake_map, x, y-1) ||
+               enq(&mut pq, &mut lake_map, x, y+1) ||
+               enq(&mut pq, &mut lake_map, nx, ny)
+            {
+                    break;
             }
-            if x < width-1 && enq(&mut pq, &mut lake_map, x+1, y) {
-                break;
-            }
-            if y > 0 && enq(&mut pq, &mut lake_map, x, y-1) {
-                break;
-            }
-            if y < height-1 && enq(&mut pq, &mut lake_map, x, y+1) {
-                break;
-            }
+
+            draw_line(&mut lake_map, x as _, y as _, nx as _, ny as _, |_| -2.0);
         }
 
-        lake_map.map(|h|
-            if h < -1.0 { 
-                1.0 
-            } else if h < 0.0 { 
-                0.0
-            } else {
-                h
+        lake_map.map(|h| {
+            match h {
+                h if h < -1.0 => 1.0,
+                h if h <  0.0 => 0.0,
+                h => h,
             }
-        );
+        });
     }
 
     lake_map
@@ -153,7 +151,7 @@ fn next_target(map: &Map, range: usize, x: usize, y: usize) -> (usize, usize) {
     (nx, ny)
 }
 
-fn draw_line(flow_map: &mut Map, x1: isize, y1: isize, x2: isize, y2: isize) {
+fn draw_line(map: &mut Map, x1: isize, y1: isize, x2: isize, y2: isize, fun: fn(f32) -> f32) {
     let sign = |x| if x > 0 { 1 } else { -1 };
 
     let dx = (x2 - x1).abs();
@@ -172,7 +170,7 @@ fn draw_line(flow_map: &mut Map, x1: isize, y1: isize, x2: isize, y2: isize) {
     let (mut x, mut y) = (x1, y1);
 
     for _ in 0..dx {
-        flow_map[(x as _, y as _)] += 1.0;
+        map[(x as _, y as _)] = fun(map[(x as _, y as _)]);
 
         while d >= 0 {
             if swap {
@@ -191,6 +189,6 @@ fn draw_line(flow_map: &mut Map, x1: isize, y1: isize, x2: isize, y2: isize) {
         d += 2 * dy;
     }
 
-    flow_map[(x as _, y as _)] += 1.0;
+    map[(x as _, y as _)] = fun(map[(x as _, y as _)]);
 }
 
