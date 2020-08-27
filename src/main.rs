@@ -22,16 +22,16 @@ fn main() -> std::io::Result<()> {
 
     println!("Startup\n");
 
-    let map = log("Generating Simplex Map", &|| simplex_map(size, size, true));
-    let mut river_map = log("Generating River Map", &|| river::create_flow_map(&map, water_range));
-    let lake_map = log("Generating Lake Map", &|| lake::lake_map(&map, &river_map, ocean_height, water_range));
+    let map = log("Generating Simplex Map", || simplex_map(size, size, true));
+    let mut river_map = log("Generating River Map", || river::create_flow_map(&map, water_range));
+    let lake_map = log("Generating Lake Map", || lake::lake_map(&map, &river_map, ocean_height, water_range));
 
-    river_map.map(|h| h.powf(0.3));
+    log("Adjusting River Map", || river_map.map(|h| h.powf(0.3)));
 
-    let water_terrain = log("Generating Terrain", &|| water_terrain::create_heightmap(&river_map, &lake_map));
+    let water_terrain = log("Generating Terrain", || water_terrain::create_heightmap(&river_map, &lake_map));
 
     if export_obj {
-        log("Exporting Terrain OBJ", &|| {
+        log("Exporting Terrain OBJ", || {
             let mut terrain_file = File::create("terrain.obj")?;
             let mut writer = ObjWriter::new(&mut terrain_file)?;
             water_terrain.export_mesh(&mut writer)
@@ -39,14 +39,14 @@ fn main() -> std::io::Result<()> {
     }
 
     if export_heightmap {
-        log("Exporting Heightmap", &|| {
+        log("Exporting Heightmap", || {
             let heightmap_file = File::create("terrain.png")?;
             water_terrain.export_image(heightmap_file)
         })?;
     }
 
     if export_wetmap {
-        log("Exporting River Map", &|| {
+        log("Exporting River Map", || {
             let river_file = File::create("wet.png")?;
             river_map.export_image(river_file)
         })?;
@@ -56,7 +56,7 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-fn log<T>(name: &'static str, fun: &dyn Fn() -> T) -> T {
+fn log<T, F: FnMut() -> T>(name: &'static str, mut fun: F) -> T {
     print!("{} ", name);
     let start = std::time::SystemTime::now();
     let result = fun();
@@ -68,7 +68,7 @@ fn log<T>(name: &'static str, fun: &dyn Fn() -> T) -> T {
 }
 
 fn simplex_map(width: usize, height: usize, enable_edge_scaling: bool) -> Map {
-    let iter = 16;
+    let iter = 4;
     let persistence = 0.3;
     let scale = 5.02 / width as f32;
 
@@ -124,3 +124,4 @@ fn simplex_map(width: usize, height: usize, enable_edge_scaling: bool) -> Map {
 
     map
 }
+
