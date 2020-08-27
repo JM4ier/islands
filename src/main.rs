@@ -6,26 +6,44 @@ mod map;
 mod river;
 mod flow;
 mod lake;
+mod water_terrain;
 
 use map::Map;
 use obj::ObjWriter;
 
 fn main() -> std::io::Result<()> {
+    let export_wetmap = true;
+    let export_heightmap = true;
+    let export_obj = false;
+
     let size = 800;
+    let water_range = 6;
+    let ocean_height = 20.0;
     let map = generate_map(size, size, true);
-    let mut flow_map = river::create_flow_map(&map, size * size);
+
+    let mut flow_map = river::create_flow_map(&map, size * size, water_range);
+
+    let lake_map = lake::lake_map(&map, &flow_map, ocean_height, water_range); 
     flow_map.map(|h| h.powf(0.3));
 
+    let water_terrain = water_terrain::create_heightmap(&flow_map, &lake_map);
+
     // exporting terrain
-    let mut terrain_file = File::create("terrain.obj")?;
-    let mut writer = ObjWriter::new(&mut terrain_file)?;
-    //map.export_mesh(&mut writer)?;
+    if export_obj {
+        let mut terrain_file = File::create("terrain.obj")?;
+        let mut writer = ObjWriter::new(&mut terrain_file)?;
+        map.export_mesh(&mut writer)?;
+    }
 
-    let heightmap_file = File::create("terrain.png")?;
-    map.export_image(heightmap_file)?;
+    if export_heightmap {
+        let heightmap_file = File::create("terrain.png")?;
+        water_terrain.export_image(heightmap_file)?;
+    }
 
-    let flowmap_file = File::create("wet.png")?;
-    flow_map.export_image(flowmap_file)?;
+    if export_wetmap {
+        let flowmap_file = File::create("wet.png")?;
+        flow_map.export_image(flowmap_file)?;
+    }
 
     Ok(())
 }

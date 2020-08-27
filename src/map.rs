@@ -45,6 +45,7 @@ impl Map {
 
 impl Map{
     /// exports the heightmap as obj mesh
+    #[allow(unused)]
     pub fn export_mesh<W: Write>(&self, obj: &mut ObjWriter<W>) -> Result<()> {
         let vertex = |x, y| Vector::new(x as _, y as _, self[(x, y)]);
 
@@ -58,6 +59,7 @@ impl Map{
     }
 
     /// exports the heightmap as png image
+    #[allow(unused)]
     pub fn export_image<W: Write>(&self, writer: W) -> Result<()>{
         let mut encoder = png::Encoder::new(writer, self.width() as _, self.height() as _);
         encoder.set_color(png::ColorType::Grayscale);

@@ -1,5 +1,3 @@
-use std::collections::*;
-use std::cmp::*;
 use crate::map::*;
 
 pub fn next_target(map: &Map, range: usize, x: usize, y: usize) -> (usize, usize) {
