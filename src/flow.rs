@@ -25,7 +25,7 @@ pub fn next_target(map: &Map, range: usize, x: usize, y: usize) -> (usize, usize
     (nx, ny)
 }
 
-pub fn draw_line(map: &mut Map, x1: isize, y1: isize, x2: isize, y2: isize, fun: fn(f32) -> f32) {
+pub fn draw_line(map: &mut Map, x1: isize, y1: isize, x2: isize, y2: isize, fun: &dyn Fn(f32) -> f32) {
     let sign = |x| if x > 0 { 1 } else { -1 };
 
     let dx = (x2 - x1).abs();
