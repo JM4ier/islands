@@ -44,23 +44,30 @@ fn main() -> std::io::Result<()> {
     }
 
     if export_wetmap {
-        log("Exporting River Map", || {
-            let river_file = File::create("wet.png")?;
-            river_map.export_image(river_file)
+        log("Exporting River/Lake", || {
+            let river_file = File::create("river.png")?;
+            river_map.export_image(river_file)?;
+            let lake_file = File::create("lake.png")?;
+            lake_map.export_image(lake_file)
         })?;
     }
 
     println!();
+
+    println!("lakemap mm: {:?}", lake_map.minmax());
+    println!("terrain mm: {:?}", water_terrain.minmax());
     Ok(())
 }
 
 fn log<T, F: FnMut() -> T>(name: &'static str, mut fun: F) -> T {
-    print!("{} ", name);
+    print!("{}\t", name);
+    use std::io::Write;
+    std::io::stdout().lock().flush().ok();
     let start = std::time::SystemTime::now();
     let result = fun();
     match start.elapsed() {
-        Ok(elapsed) => println!("\t({:.3} s)", elapsed.as_secs_f32()),
-        Err(e) => println!("\t(Timing error: {:?})", e),
+        Ok(elapsed) => println!("({:.3} s)", elapsed.as_secs_f32()),
+        Err(e) => println!("(Timing error: {:?})", e),
     }
     result
 }

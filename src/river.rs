@@ -35,3 +35,10 @@ pub fn create_flow_map(map: &Map, range: usize) -> Map {
     flow_map
 }
 
+#[test]
+fn points_are_correctly_sorted() {
+    let mut points = vec![Point{ x: 0, y: 0, z: 1.0 }, Point{ x: 4, y: 6, z: 7.5 }];
+    points.sort();
+    assert!(points[0].z > points[1].z);
+}
+
