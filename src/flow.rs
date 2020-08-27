@@ -1,30 +1,44 @@
 use crate::map::*;
 
-pub fn next_target(map: &Map, range: usize, x: usize, y: usize) -> (usize, usize) {
+pub fn circle(range: usize) -> Vec<(isize, isize)> {
+    let mut positions = Vec::with_capacity(range*range);
+
+    let range = range as isize;
+
+    for x in (-range)..=(range) {
+        for y in (-range)..=(range) {
+            if x*x + y*y <= range*range {
+                positions.push((x, y));
+            }
+        }
+    }
+
+    positions
+}
+
+#[inline]
+pub fn next_target(map: &Map,  x: usize, y: usize, positions: &[(isize, isize)]) -> (usize, usize) {
     let (mut nx, mut ny) = (x, y);
     let mut lowest = std::f32::MAX;
 
-    for px in (x-range)..=(x+range) {
-        for py in (y-range)..=(y+range) {
-            let dx = x.max(px) - x.min(px);
-            let dy = y.max(py) - y.min(py);
+    let (x, y) = (x as isize, y as isize);
 
-            if dx*dx + dy*dy > range*range {
-                continue;
-            }
+    for (dx, dy) in positions.iter() {
+        let px = (x + dx) as usize;
+        let py = (y + dy) as usize;
 
-            let height = map[(px, py)];
-            if height < lowest {
-                lowest = height;
-                nx = px;
-                ny = py;
-            }
+        let height = map[(px, py)];
+        if height < lowest {
+            lowest = height;
+            nx = px;
+            ny = py;
         }
     }
 
     (nx, ny)
 }
 
+#[inline]
 pub fn draw_line(map: &mut Map, x1: isize, y1: isize, x2: isize, y2: isize, fun: &dyn Fn(f32) -> f32) {
     let sign = |x| if x > 0 { 1 } else { -1 };
 

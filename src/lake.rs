@@ -27,11 +27,13 @@ pub fn lake_map(map: &Map, flow_map: &Map, ocean: f32, range: usize) -> Map {
     let width = map.width();
     let height = map.height();
 
+    let circle = circle(range);
+
     // find lake origins where water cant flow anywhere
     let mut lake_origins = vec![];
     for x in range..(width-range) {
         for y in range..(height-range) {
-            if (x, y) == next_target(map, range, x, y) && flow_map[(x, y)] > 100.0 {
+            if (x, y) == next_target(map, x, y, &circle) && flow_map[(x, y)] > 100.0 {
                 lake_origins.push(Point{x, y, z: flow_map[(x, y)]});
             }
         }
@@ -71,7 +73,7 @@ pub fn lake_map(map: &Map, flow_map: &Map, ocean: f32, range: usize) -> Map {
                 break;
             }
 
-            let (nx, ny) = next_target(map, range, x, y);
+            let (nx, ny) = next_target(map, x, y, &circle);
 
             if enq(&mut pq, &mut lake_map, x-1, y) ||
                enq(&mut pq, &mut lake_map, x+1, y) ||

@@ -124,4 +124,3 @@ fn simplex_map(width: usize, height: usize, enable_edge_scaling: bool) -> Map {
 
     map
 }
-

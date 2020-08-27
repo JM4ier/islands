@@ -16,6 +16,7 @@ pub fn create_flow_map(map: &Map, range: usize) -> Map {
     points.sort(); // sort highest first
 
     let mut volume = vec![vec![1.0f32; height]; width];
+    let circle = circle(range);
 
     for point in points.into_iter() {
         let Point{x, y, z: _} = point;
@@ -24,7 +25,7 @@ pub fn create_flow_map(map: &Map, range: usize) -> Map {
             break;
         }
 
-        let (nx, ny) = next_target(map, range, x, y);
+        let (nx, ny) = next_target(map, x, y, &circle);
 
         draw_line(&mut flow_map, x as _, y as _, nx as _, ny as _, &|h| h + volume[x][y]);
 

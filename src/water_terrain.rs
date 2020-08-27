@@ -18,6 +18,7 @@ pub fn create_heightmap(rivers: &Map, lakes: &Map) -> Map {
 
     while let Some(point) = q.pop() {
         let Point{x, y, z} = point;
+
         if terrain[(x, y)] > 0.0 {
             continue;
         }
@@ -38,10 +39,10 @@ pub fn create_heightmap(rivers: &Map, lakes: &Map) -> Map {
                 }
 
                 let dz = 0.1 / (0.1 + rivers[(x, y)]);
-                q.push(Point { x: nx, y: ny, z: z+dz });
+                let nz = z + dz;
+                q.push(Point { x: nx, y: ny, z: nz });
             }
         }
-
     }
 
     terrain
