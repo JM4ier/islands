@@ -8,7 +8,6 @@ edition = "2018"
 
 [dependencies]
 fuss = "0.2.2"
-nalgebra = "0.21.1"
 png = "0.16.7"
-rand = "0.7.3"
+cgmath = "0.17.0"
 
