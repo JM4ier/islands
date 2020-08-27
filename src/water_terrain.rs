@@ -37,7 +37,7 @@ pub fn create_heightmap(rivers: &Map, lakes: &Map) -> Map {
                     continue;
                 }
 
-                let dz = 1.0 / (1.0 + rivers[(x, y)]);
+                let dz = 0.1 / (0.1 + rivers[(x, y)]);
                 q.push(Point { x: nx, y: ny, z: z+dz });
             }
         }

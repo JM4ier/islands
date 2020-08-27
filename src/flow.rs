@@ -6,7 +6,10 @@ pub fn next_target(map: &Map, range: usize, x: usize, y: usize) -> (usize, usize
 
     for px in (x-range)..=(x+range) {
         for py in (y-range)..=(y+range) {
-            if (px-x)*(px-x) + (py-y)*(py-y) > range*range {
+            let dx = x.max(px) - x.min(px);
+            let dy = y.max(py) - y.min(py);
+
+            if dx*dx + dy*dy > range*range {
                 continue;
             }
 

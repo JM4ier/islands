@@ -19,36 +19,55 @@ fn main() -> std::io::Result<()> {
     let size = 800;
     let water_range = 6;
     let ocean_height = 20.0;
-    let map = generate_map(size, size, true);
 
-    let mut flow_map = river::create_flow_map(&map, size * size, water_range);
+    println!("Startup\n");
 
-    let lake_map = lake::lake_map(&map, &flow_map, ocean_height, water_range); 
-    flow_map.map(|h| h.powf(0.3));
+    let map = log("Generating Simplex Map", &|| simplex_map(size, size, true));
+    let mut river_map = log("Generating River Map", &|| river::create_flow_map(&map, size*size, water_range));
+    let lake_map = log("Generating Lake Map", &|| lake::lake_map(&map, &river_map, ocean_height, water_range));
 
-    let water_terrain = water_terrain::create_heightmap(&flow_map, &lake_map);
+    river_map.map(|h| h.powf(0.3));
 
-    // exporting terrain
+    let water_terrain = log("Generating Terrain", &|| water_terrain::create_heightmap(&river_map, &lake_map));
+
     if export_obj {
-        let mut terrain_file = File::create("terrain.obj")?;
-        let mut writer = ObjWriter::new(&mut terrain_file)?;
-        map.export_mesh(&mut writer)?;
+        log("Exporting Terrain OBJ", &|| {
+            let mut terrain_file = File::create("terrain.obj")?;
+            let mut writer = ObjWriter::new(&mut terrain_file)?;
+            water_terrain.export_mesh(&mut writer)
+        })?;
     }
 
     if export_heightmap {
-        let heightmap_file = File::create("terrain.png")?;
-        water_terrain.export_image(heightmap_file)?;
+        log("Exporting Heightmap", &|| {
+            let heightmap_file = File::create("terrain.png")?;
+            water_terrain.export_image(heightmap_file)
+        })?;
     }
 
     if export_wetmap {
-        let flowmap_file = File::create("wet.png")?;
-        flow_map.export_image(flowmap_file)?;
+        log("Exporting River Map", &|| {
+            let river_file = File::create("wet.png")?;
+            river_map.export_image(river_file)
+        })?;
     }
 
+    println!();
     Ok(())
 }
 
-fn generate_map(width: usize, height: usize, enable_edge_scaling: bool) -> Map {
+fn log<T>(name: &'static str, fun: &dyn Fn() -> T) -> T {
+    print!("{} ", name);
+    let start = std::time::SystemTime::now();
+    let result = fun();
+    match start.elapsed() {
+        Ok(elapsed) => println!("\t({:.3} s)", elapsed.as_secs_f32()),
+        Err(e) => println!("\t(Timing error: {:?})", e),
+    }
+    result
+}
+
+fn simplex_map(width: usize, height: usize, enable_edge_scaling: bool) -> Map {
     let iter = 16;
     let persistence = 0.3;
     let scale = 5.02 / width as f32;

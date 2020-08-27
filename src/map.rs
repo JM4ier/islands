@@ -79,8 +79,6 @@ impl Map{
             }
         }
 
-        println!("min: {}, max: {}", min, max);
-
         writer.write_image_data(&buffer)
             .map_err(|_| Error::new(ErrorKind::Other, "PNG encoding error"))
     }
