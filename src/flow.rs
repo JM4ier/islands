@@ -1,5 +1,6 @@
 use crate::map::*;
 
+/// returns relative coordinates of adjacent fields within a certain range
 pub fn circle(range: usize) -> Vec<(isize, isize)> {
     let mut positions = Vec::with_capacity(range*range);
 
@@ -16,17 +17,23 @@ pub fn circle(range: usize) -> Vec<(isize, isize)> {
     positions
 }
 
+/// Finds the lowest neighbor around a point on the map using the relative coordinates of all
+/// neighbors. 
+/// Relative coordinates of all neighbors can be found once using the [`circle`](./fn.circle.html) function.
 #[inline]
-pub fn next_target(map: &Map,  x: usize, y: usize, positions: &[(isize, isize)]) -> (usize, usize) {
-    let (mut nx, mut ny) = (x, y);
-    let mut lowest = std::f32::MAX;
+pub fn next_target(map: &Map,  x: usize, y: usize, neighbor_positions: &[(isize, isize)]) -> (usize, usize) {
+    let (mut nx, mut ny) = (x, y);  // next x,y
+    let mut lowest = std::f32::MAX; // lowest z coordinate of neighbors
 
     let (x, y) = (x as isize, y as isize);
 
-    for (dx, dy) in positions.iter() {
+    for (dx, dy) in neighbor_positions.iter() {
+
+        // absolute x,y coordinate of neighbors
         let px = (x + dx) as usize;
         let py = (y + dy) as usize;
 
+        // find lowest neighbor
         let height = map[(px, py)];
         if height < lowest {
             lowest = height;
@@ -38,6 +45,14 @@ pub fn next_target(map: &Map,  x: usize, y: usize, positions: &[(isize, isize)])
     (nx, ny)
 }
 
+/// Draws a line on the `map` from `(x1, y1)` to `(x2, y2)`.
+///
+/// The `fun` parameter is given to implement custom strokes, i.e. how much the values are
+/// increased given a base value. To simply draw a line with no respect to the previous values of
+/// the map, something like this can be passed as `fun`: `&|_| 1.0`.
+///
+/// The drawing is done using a generalized version of
+/// [Bresenhams' Line Algorithm](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm).
 #[inline]
 pub fn draw_line(map: &mut Map, x1: isize, y1: isize, x2: isize, y2: isize, fun: &dyn Fn(f32) -> f32) {
     let sign = |x| if x > 0 { 1 } else { -1 };

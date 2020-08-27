@@ -1,4 +1,4 @@
-use crate::{map::*, flow::*, lake::Point};
+use crate::{map::*, flow::*};
 
 pub fn create_flow_map(map: &Map, range: usize) -> Map {
     let width = map.width();

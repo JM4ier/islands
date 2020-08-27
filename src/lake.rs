@@ -1,27 +1,5 @@
 use std::collections::*;
-use std::cmp::*;
 use crate::{map::*, flow::*};
-
-#[derive(PartialEq, Debug)]
-pub struct Point{
-    pub x: usize, 
-    pub y: usize, 
-    pub z: f32
-}
-
-impl PartialOrd for Point {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        other.z.partial_cmp(&self.z)
-    }
-}
-
-impl Eq for Point {}
-
-impl Ord for Point {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
-    }
-}
 
 pub fn lake_map(map: &Map, flow_map: &Map, ocean: f32, range: usize) -> Map {
     let width = map.width();

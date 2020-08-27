@@ -1,7 +1,12 @@
 use std::ops::*;
 use std::io::{Result, Error, ErrorKind, Write};
+use std::cmp::*;
 use crate::{geometry::*, obj::*};
 
+/// Generic matrix type with a fixed width and heigth that holds floats.
+///
+/// It can be used to store heightmaps, wetness or other kinds of maps of a terrain.
+#[derive(Clone)]
 pub struct Map(Vec<Vec<f32>>);
 
 impl Map {
@@ -20,6 +25,7 @@ impl Map {
         }
     }
 
+    /// maps each entry of the map to a new value
     pub fn map<F>(&mut self, fun: F) 
     where F: Fn(f32) -> f32 
     {
@@ -30,6 +36,7 @@ impl Map {
         }
     }
 
+    /// Returns the minimum and maximum value of the map
     pub fn minmax(&self) -> (f32, f32) {
         let mut min = std::f32::MAX;
         let mut max = std::f32::MIN;
@@ -95,6 +102,28 @@ impl Index<(usize, usize)> for Map {
 impl IndexMut<(usize, usize)> for Map {
     fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
         &mut self.0[index.0][index.1]
+    }
+}
+
+/// Single point of the map, storing its height
+#[derive(PartialEq, Debug)]
+pub struct Point{
+    pub x: usize, 
+    pub y: usize, 
+    pub z: f32
+}
+
+impl PartialOrd for Point {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        other.z.partial_cmp(&self.z)
+    }
+}
+
+impl Eq for Point {}
+
+impl Ord for Point {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }
 

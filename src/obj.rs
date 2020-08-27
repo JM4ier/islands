@@ -1,6 +1,8 @@
 use crate::geometry::*;
 use std::io::Write;
 
+/// Obj serialization
+/// Can write arbitrary geometry into an output stream
 pub struct ObjWriter<'w, W> {
     writer: &'w mut W,
     vertex_count: usize,
@@ -25,6 +27,7 @@ impl<'w, W: Write> ObjWriter<'w, W>
     }
 
     #[allow(unused)]
+    /// writes a single triangle to the output buffer
     pub fn triangle(&mut self, triangle: &Triangle) -> std::io::Result<()> {
         for i in 0..3 {
             self.vertex(&triangle.0[i])?;
@@ -36,6 +39,7 @@ impl<'w, W: Write> ObjWriter<'w, W>
     }
 
     #[allow(unused)]
+    /// writes a number of triangles to the output buffer
     pub fn triangles(&mut self, triangles: &[Triangle]) -> std::io::Result<()> {
         for triangle in triangles.iter() {
             self.triangle(triangle)?;
@@ -44,6 +48,7 @@ impl<'w, W: Write> ObjWriter<'w, W>
     }
 
     #[allow(unused)]
+    /// writes a line to the buffer
     pub fn line(&mut self, vertices: &[Vector]) -> std::io::Result<()> {
         let mut line = String::from("l");
         for vertex in vertices.iter() {
