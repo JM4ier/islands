@@ -24,7 +24,7 @@ fn main() -> std::io::Result<()> {
     let mut river_map = log("Generating River Map", || river::create_flow_map(&map, water_range));
     let lake_map = log("Generating Lake Map", || lake::lake_map(&map, &river_map, ocean_height, water_range));
 
-    log("Adjusting River Map", || river_map.map(|h| h.powf(0.3)));
+    log("Adjusting River Map", || river_map.map(|h| h.powf(0.45)));
 
     let water_terrain = log("Generating Terrain", || water_terrain::create_heightmap(&river_map, &lake_map));
 
@@ -54,8 +54,6 @@ fn main() -> std::io::Result<()> {
 
     println!();
 
-    println!("lakemap mm: {:?}", lake_map.minmax());
-    println!("terrain mm: {:?}", water_terrain.minmax());
     Ok(())
 }
 

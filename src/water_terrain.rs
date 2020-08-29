@@ -49,7 +49,7 @@ pub fn create_heightmap(rivers: &Map, lakes: &Map) -> Map {
                 }
 
                 // steeper if there is not much water flowing through
-                let dz = 1.0 / (0.5 + 0.5 * rivers[(x, y)]);
+                let dz = 1.0 / (0.5 + rivers[(x, y)]);
                 let nz = z + dz;
 
                 // add neighboring point to queue to process further in the correct order
