@@ -16,19 +16,22 @@ pub fn create_heightmap(rivers: &Map, lakes: &Map) -> Map {
             let z = lakes[(x, y)];
             if z > 0.0 {
                 queue.push(Point{ x, y, z });
+                terrain[(x, y)] = z;
             }
         }
     }
 
+    let mut done = vec![vec![false; height]; width];
+
     while let Some(point) = queue.pop() {
         let Point{x, y, z} = point;
 
-        if terrain[(x, y)] > 0.0 {
+        if done[x][y] {
             // terrain has already been generated here earlier, no need to do it again
             continue;
         }
 
-        terrain[(x, y)] = z;
+        done[x][y] = true;
 
         if x == 0 || x == width-1 || y == 0 || y == height-1 {
             // neighbors are not searched for border positions, as this should all be 
@@ -43,7 +46,7 @@ pub fn create_heightmap(rivers: &Map, lakes: &Map) -> Map {
                 let nx = ((x as isize) + dx) as usize;
                 let ny = ((y as isize) + dy) as usize;
 
-                if terrain[(nx, ny)] > 0.0 {
+                if done[nx][ny] {
                     // if already generated, don't bother
                     continue;
                 }
@@ -52,8 +55,12 @@ pub fn create_heightmap(rivers: &Map, lakes: &Map) -> Map {
                 let dz = 1.0 / (0.5 + rivers[(x, y)]);
                 let nz = z + dz;
 
+                if terrain[(nx, ny)] != 0.0 && terrain[(nx, ny)] < nz {
+                    continue;
+                }
                 // add neighboring point to queue to process further in the correct order
                 queue.push(Point { x: nx, y: ny, z: nz });
+                terrain[(nx, ny)] = nz;
             }
         }
     }
