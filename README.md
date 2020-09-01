@@ -1,5 +1,5 @@
 # Islands
-This is a wip of a procedural island generator.
+WIP of a procedural island generator.
 
 As it stands now it generates a height map of a single island and outputs it into terrain.png
 
