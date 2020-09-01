@@ -1,12 +1,12 @@
 use std::fs::File;
 
-mod simplex;
-mod geometry;
-mod obj;
-mod map;
-mod river;
 mod flow;
+mod geometry;
 mod lake;
+mod map;
+mod obj;
+mod river;
+mod simplex;
 mod water_terrain;
 
 fn main() -> std::io::Result<()> {
@@ -20,13 +20,21 @@ fn main() -> std::io::Result<()> {
 
     println!("-- Island Generator --\n");
 
-    let map = log("Generating Simplex Map", || simplex::simplex_map(size, size));
-    let mut river_map = log("Generating River Map", || river::create_flow_map(&map, water_range));
-    let lake_map = log("Generating Lake Map", || lake::lake_map(&map, &river_map, ocean_height, water_range));
+    let map = log("Generating Simplex Map", || {
+        simplex::simplex_map(size, size)
+    });
+    let mut river_map = log("Generating River Map", || {
+        river::create_flow_map(&map, water_range)
+    });
+    let lake_map = log("Generating Lake Map", || {
+        lake::lake_map(&map, &river_map, ocean_height, water_range)
+    });
 
     log("Adjusting River Map", || river_map.map(|h| h.powf(0.45)));
 
-    let water_terrain = log("Generating Terrain", || water_terrain::create_heightmap(&river_map, &lake_map));
+    let water_terrain = log("Generating Terrain", || {
+        water_terrain::create_heightmap(&river_map, &lake_map)
+    });
 
     if export_obj {
         log("Exporting Terrain OBJ", || {
@@ -69,4 +77,3 @@ fn log<T, F: FnMut() -> T>(name: &'static str, mut fun: F) -> T {
     }
     result
 }
-

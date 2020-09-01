@@ -16,7 +16,6 @@ pub fn simplex_map(width: usize, height: usize) -> Map {
 
     for x in 0..width {
         for y in 0..height {
-
             let height_scaling = {
                 let (x, y, width, height) = (x as f32, y as f32, width as f32, height as f32);
 
@@ -38,7 +37,7 @@ pub fn simplex_map(width: usize, height: usize) -> Map {
                 let mountain_scaling = {
                     let scale = 4.5 / width;
                     let (dx, dy) = (dx * scale, dy * scale);
-                    6.0 / (dx*dx + dy*dy + 1.0)
+                    6.0 / (dx * dx + dy * dy + 1.0)
                 };
 
                 edge_scaling * mountain_scaling
@@ -52,4 +51,3 @@ pub fn simplex_map(width: usize, height: usize) -> Map {
 
     map
 }
-

@@ -1,5 +1,5 @@
+use crate::{flow::*, map::*};
 use std::collections::*;
-use crate::{map::*, flow::*};
 
 pub fn lake_map(map: &Map, rivers: &Map, ocean: f32, range: usize) -> Map {
     let width = map.width();
@@ -10,7 +10,7 @@ pub fn lake_map(map: &Map, rivers: &Map, ocean: f32, range: usize) -> Map {
     let mut lake_origins = Vec::new();
     let mut lakes = Map::new(width, height);
 
-    let at_border = |x, y| x < range || x >= width-range || y < range || y >= height-range;
+    let at_border = |x, y| x < range || x >= width - range || y < range || y >= height - range;
 
     for x in 0..width {
         for y in 0..height {
@@ -20,7 +20,7 @@ pub fn lake_map(map: &Map, rivers: &Map, ocean: f32, range: usize) -> Map {
             if z < ocean || at_border(x, y) {
                 lakes[xy] = 1.0;
             } else if xy == next_target(map, x, y, &circle) && rivers[xy] > 100.0 {
-                lake_origins.push(Point{x, y, z});
+                lake_origins.push(Point { x, y, z });
             }
         }
     }
@@ -33,7 +33,11 @@ pub fn lake_map(map: &Map, rivers: &Map, ocean: f32, range: usize) -> Map {
             ($x:expr, $y:expr) => {{
                 let xy = ($x, $y);
                 if lakes[xy] == 0.0 {
-                    queue.push(Point{x: xy.0, y: xy.1, z: map[xy]});
+                    queue.push(Point {
+                        x: xy.0,
+                        y: xy.1,
+                        z: map[xy],
+                    });
                     lakes[xy] = -1.0;
                     points.push(xy);
                 }
@@ -45,13 +49,14 @@ pub fn lake_map(map: &Map, rivers: &Map, ocean: f32, range: usize) -> Map {
             continue;
         }
 
-        while let Some(Point{x, y, z}) = queue.pop() {
+        while let Some(Point { x, y, z }) = queue.pop() {
             if z < ocean || at_border(x, y) {
                 break;
             }
 
             let (nx, ny) = next_target(map, x, y, &circle);
-            if enq!(x-1, y) || enq!(x+1, y) || enq!(x, y-1) || enq!(x, y+1) || enq!(nx, ny) {
+            if enq!(x - 1, y) || enq!(x + 1, y) || enq!(x, y - 1) || enq!(x, y + 1) || enq!(nx, ny)
+            {
                 break;
             }
         }
@@ -68,7 +73,6 @@ pub fn lake_map(map: &Map, rivers: &Map, ocean: f32, range: usize) -> Map {
     for x in 0..width {
         for y in 0..height {
             if groups[x][y] == 0 && lakes[(x, y)] > 0.0 {
-
                 let group = max.len();
                 max.push(ocean);
                 area.push(0);
@@ -91,7 +95,7 @@ pub fn lake_map(map: &Map, rivers: &Map, ocean: f32, range: usize) -> Map {
                     area[group] += 1;
                     max[group] = max[group].max(map[(x, y)]);
 
-                    let next = |val, limit| val + (val+1 < limit) as usize;
+                    let next = |val, limit| val + (val + 1 < limit) as usize;
                     let prev = |val| val - (val > 0) as usize;
 
                     enq!(prev(x), y);
@@ -112,4 +116,3 @@ pub fn lake_map(map: &Map, rivers: &Map, ocean: f32, range: usize) -> Map {
 
     lakes
 }
-

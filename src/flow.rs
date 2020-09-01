@@ -2,13 +2,13 @@ use crate::map::*;
 
 /// returns relative coordinates of adjacent fields within a certain range
 pub fn circle(range: usize) -> Vec<(isize, isize)> {
-    let mut positions = Vec::with_capacity(range*range);
+    let mut positions = Vec::with_capacity(range * range);
 
     let range = range as isize;
 
     for x in (-range)..=(range) {
         for y in (-range)..=(range) {
-            if x*x + y*y <= range*range {
+            if x * x + y * y <= range * range {
                 positions.push((x, y));
             }
         }
@@ -18,17 +18,21 @@ pub fn circle(range: usize) -> Vec<(isize, isize)> {
 }
 
 /// Finds the lowest neighbor around a point on the map using the relative coordinates of all
-/// neighbors. 
+/// neighbors.
 /// Relative coordinates of all neighbors can be found once using the [`circle`](./fn.circle.html) function.
 #[inline]
-pub fn next_target(map: &Map,  x: usize, y: usize, neighbor_positions: &[(isize, isize)]) -> (usize, usize) {
-    let (mut nx, mut ny) = (x, y);  // next x,y
+pub fn next_target(
+    map: &Map,
+    x: usize,
+    y: usize,
+    neighbor_positions: &[(isize, isize)],
+) -> (usize, usize) {
+    let (mut nx, mut ny) = (x, y); // next x,y
     let mut lowest = std::f32::MAX; // lowest z coordinate of neighbors
 
     let (x, y) = (x as isize, y as isize);
 
     for (dx, dy) in neighbor_positions.iter() {
-
         // absolute x,y coordinate of neighbors
         let px = (x + dx) as usize;
         let py = (y + dy) as usize;
@@ -54,7 +58,14 @@ pub fn next_target(map: &Map,  x: usize, y: usize, neighbor_positions: &[(isize,
 /// The drawing is done using a generalized version of
 /// [Bresenhams' Line Algorithm](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm).
 #[inline]
-pub fn draw_line(map: &mut Map, x1: isize, y1: isize, x2: isize, y2: isize, fun: &dyn Fn(f32) -> f32) {
+pub fn draw_line(
+    map: &mut Map,
+    x1: isize,
+    y1: isize,
+    x2: isize,
+    y2: isize,
+    fun: &dyn Fn(f32) -> f32,
+) {
     let sign = |x| if x > 0 { 1 } else { -1 };
 
     let dx = (x2 - x1).abs();
@@ -94,4 +105,3 @@ pub fn draw_line(map: &mut Map, x1: isize, y1: isize, x2: isize, y2: isize, fun:
 
     map[(x as _, y as _)] = fun(map[(x as _, y as _)]);
 }
-

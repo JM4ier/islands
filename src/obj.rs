@@ -8,8 +8,7 @@ pub struct ObjWriter<'w, W> {
     vertex_count: usize,
 }
 
-impl<'w, W: Write> ObjWriter<'w, W> 
-{
+impl<'w, W: Write> ObjWriter<'w, W> {
     pub fn new(writer: &'w mut W) -> std::io::Result<Self> {
         writer.write_all(b"# Terrain Export from _WorldGenTM_\n")?;
         Ok(Self {
@@ -19,8 +18,7 @@ impl<'w, W: Write> ObjWriter<'w, W>
     }
 }
 
-impl<'w, W: Write> ObjWriter<'w, W> 
-{
+impl<'w, W: Write> ObjWriter<'w, W> {
     fn vertex(&mut self, vector: &Vector) -> std::io::Result<()> {
         let line = format!("v {} {} {}\n", vector.x, vector.y, vector.z);
         self.writer.write_all(line.as_bytes())
@@ -33,7 +31,7 @@ impl<'w, W: Write> ObjWriter<'w, W>
             self.vertex(&triangle.0[i])?;
         }
         let base = self.vertex_count;
-        let line = format!("f {} {} {}\n", base+1, base+2, base+3);
+        let line = format!("f {} {} {}\n", base + 1, base + 2, base + 3);
         self.vertex_count += 3;
         self.writer.write_all(line.as_bytes())
     }
@@ -60,4 +58,3 @@ impl<'w, W: Write> ObjWriter<'w, W>
         self.writer.write_all(line.as_bytes())
     }
 }
-

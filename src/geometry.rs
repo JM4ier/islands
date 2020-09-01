@@ -1,7 +1,7 @@
-use cgmath::Vector3;
 use cgmath::prelude::InnerSpace;
+use cgmath::Vector3;
 
-/// Three dimensional floating point vector type 
+/// Three dimensional floating point vector type
 pub type Vector = Vector3<f32>;
 
 #[derive(Debug, Clone)]
@@ -15,4 +15,3 @@ impl Triangle {
         (vec[1] - vec[0]).cross(vec[2] - vec[0]).normalize()
     }
 }
-

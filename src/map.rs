@@ -1,7 +1,7 @@
-use std::ops::*;
-use std::io::{Result, Error, ErrorKind, Write};
-use std::cmp::*;
 use crate::{geometry::*, obj::*};
+use std::cmp::*;
+use std::io::{Error, ErrorKind, Result, Write};
+use std::ops::*;
 
 /// Generic matrix type with a fixed width and heigth that holds floats.
 ///
@@ -26,8 +26,9 @@ impl Map {
     }
 
     /// maps each entry of the map to a new value
-    pub fn map<F>(&mut self, fun: F) 
-    where F: Fn(f32) -> f32 
+    pub fn map<F>(&mut self, fun: F)
+    where
+        F: Fn(f32) -> f32,
     {
         for x in 0..self.width() {
             for y in 0..self.height() {
@@ -44,13 +45,13 @@ impl Map {
             for y in 0..self.height() {
                 min = min.min(self[(x, y)]);
                 max = max.max(self[(x, y)]);
-            } 
+            }
         }
         (min, max)
     }
 }
 
-impl Map{
+impl Map {
     /// exports the heightmap as obj mesh
     #[allow(unused)]
     pub fn export_mesh<W: Write>(&self, obj: &mut ObjWriter<W>) -> Result<()> {
@@ -58,8 +59,16 @@ impl Map{
 
         for x in 0..self.width() - 1 {
             for y in 0..self.height() - 1 {
-                obj.triangle(&Triangle([vertex(x, y), vertex(x+1, y), vertex(x, y+1)]))?;
-                obj.triangle(&Triangle([vertex(x+1, y), vertex(x+1, y+1), vertex(x, y+1)]))?;
+                obj.triangle(&Triangle([
+                    vertex(x, y),
+                    vertex(x + 1, y),
+                    vertex(x, y + 1),
+                ]))?;
+                obj.triangle(&Triangle([
+                    vertex(x + 1, y),
+                    vertex(x + 1, y + 1),
+                    vertex(x, y + 1),
+                ]))?;
             }
         }
         Ok(())
@@ -67,7 +76,7 @@ impl Map{
 
     /// exports the heightmap as png image
     #[allow(unused)]
-    pub fn export_image<W: Write>(&self, writer: W) -> Result<()>{
+    pub fn export_image<W: Write>(&self, writer: W) -> Result<()> {
         let mut encoder = png::Encoder::new(writer, self.width() as _, self.height() as _);
         encoder.set_color(png::ColorType::Grayscale);
         encoder.set_depth(png::BitDepth::Eight);
@@ -86,7 +95,8 @@ impl Map{
             }
         }
 
-        writer.write_image_data(&buffer)
+        writer
+            .write_image_data(&buffer)
             .map_err(|_| Error::new(ErrorKind::Other, "PNG encoding error"))
     }
 }
@@ -107,10 +117,10 @@ impl IndexMut<(usize, usize)> for Map {
 
 /// Single point of the map, storing its height
 #[derive(PartialEq, Debug)]
-pub struct Point{
-    pub x: usize, 
-    pub y: usize, 
-    pub z: f32
+pub struct Point {
+    pub x: usize,
+    pub y: usize,
+    pub z: f32,
 }
 
 impl PartialOrd for Point {
@@ -126,4 +136,3 @@ impl Ord for Point {
         self.partial_cmp(other).unwrap()
     }
 }
-
