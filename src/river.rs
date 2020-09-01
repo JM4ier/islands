@@ -5,31 +5,49 @@ pub fn create_flow_map(map: &Map, range: usize) -> Map {
     let height = map.height();
     let mut flow_map = Map::new(width, height);
 
-    let mut points = Vec::with_capacity(width * height);
+    let circle = circle(range);
 
-    for x in 0..width {
-        for y in 0..height {
-            points.push(Point{ x, y, z: map[(x, y)]});
+    let mut targets = vec![vec![0isize; height]; width];
+    let mut volume = vec![vec![1.0f32; height]; width];
+
+    for x in range..(width-range) {
+        for y in range..(height-range) {
+            let (nx, ny) = next_target(map, x, y, &circle);
+            if (nx, ny) != (x, y) {
+                targets[nx][ny] += 1;
+            }
         }
     }
 
-    points.sort(); // sort highest first
+    for x in range..(width-range) {
+        for y in range..(height-range) {
 
-    let mut volume = vec![vec![1.0f32; height]; width];
-    let circle = circle(range);
+            let (mut x, mut y) = (x, y);
+            if targets[x][y] == 0 {
+                loop {
+                    targets[x][y] = -1;
+                    if x < range || x >= width-range || y < range || y >= height-range {
+                        break;
+                    }
 
-    for point in points.into_iter() {
-        let Point{x, y, z: _} = point;
+                    let (nx, ny) = next_target(map, x, y, &circle);
+                    if (nx, ny) == (x, y) {
+                        break;
+                    }
 
-        if x < range || x >= width-range || y < range || y >= height-range {
-            break;
+                    draw_line(&mut flow_map, x as _, y as _, nx as _, ny as _, &|h| h + volume[x][y]);
+                    volume[nx][ny] += volume[x][y];
+                    targets[nx][ny] -= 1;
+
+                    if targets[nx][ny] == 0 {
+                        x = nx;
+                        y = ny;
+                    } else {
+                        break;
+                    }
+                }
+            }
         }
-
-        let (nx, ny) = next_target(map, x, y, &circle);
-
-        draw_line(&mut flow_map, x as _, y as _, nx as _, ny as _, &|h| h + volume[x][y]);
-
-        volume[nx][ny] += volume[x][y];
     }
 
     flow_map
