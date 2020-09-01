@@ -1,144 +1,115 @@
 use std::collections::*;
 use crate::{map::*, flow::*};
 
-pub fn lake_map(map: &Map, flow_map: &Map, ocean: f32, range: usize) -> Map {
+pub fn lake_map(map: &Map, rivers: &Map, ocean: f32, range: usize) -> Map {
     let width = map.width();
     let height = map.height();
 
     let circle = circle(range);
 
-    // find lake origins where water cant flow anywhere
-    let mut lake_origins = vec![];
-    for x in range..(width-range) {
-        for y in range..(height-range) {
-            if (x, y) == next_target(map, x, y, &circle) && flow_map[(x, y)] > 100.0 {
-                lake_origins.push(Point{x, y, z: flow_map[(x, y)]});
-            }
-        }
-    }
-    lake_origins.sort();
+    let mut lake_origins = Vec::new();
+    let mut lakes = Map::new(width, height);
 
-    let mut lake_map = Map::new(width, height);
+    let at_border = |x, y| x < range || x >= width-range || y < range || y >= height-range;
 
     for x in 0..width {
         for y in 0..height {
-            let z = map[(x, y)];
-            if z < ocean {
-                lake_map[(x, y)] = 1.0;
+            let xy = (x, y);
+            let z = map[xy];
+
+            if z < ocean || at_border(x, y) {
+                lakes[xy] = 1.0;
+            } else if xy == next_target(map, x, y, &circle) && rivers[xy] > 100.0 {
+                lake_origins.push(Point{x, y, z});
             }
         }
     }
 
-    let point = |x, y| Point{x, y, z: map[(x, y)]};
+    for origin in lake_origins.into_iter() {
+        let mut queue = BinaryHeap::new();
+        let mut points = Vec::new();
 
-    for origin in lake_origins.iter() {
-        let mut pq = BinaryHeap::new();
-        let enq = |pq: &mut BinaryHeap<Point>, lake_map: &mut Map, x, y| {
-            if lake_map[(x, y)] == 0.0 {
-                pq.push(point(x, y));
-                lake_map[(x, y)] = -1.0;
-            }
-            lake_map[(x, y)] > 0.0
-        };
+        macro_rules! enq {
+            ($x:expr, $y:expr) => {{
+                let xy = ($x, $y);
+                if lakes[xy] == 0.0 {
+                    queue.push(Point{x: xy.0, y: xy.1, z: map[xy]});
+                    lakes[xy] = -1.0;
+                    points.push(xy);
+                }
+                lakes[xy] > 0.0
+            }};
+        }
 
-        enq(&mut pq, &mut lake_map, origin.x, origin.y);
+        if enq!(origin.x, origin.y) {
+            continue;
+        }
 
-        while let Some(point) = pq.pop() {
-            let Point {x, y, z} = point;
-            lake_map[(x, y)] = -2.0;
-
-            if z < ocean || x < range || x >= width-range || y < range || y >= height-range {
+        while let Some(Point{x, y, z}) = queue.pop() {
+            if z < ocean || at_border(x, y) {
                 break;
             }
 
             let (nx, ny) = next_target(map, x, y, &circle);
-
-            if enq(&mut pq, &mut lake_map, x-1, y) ||
-               enq(&mut pq, &mut lake_map, x+1, y) ||
-               enq(&mut pq, &mut lake_map, x, y-1) ||
-               enq(&mut pq, &mut lake_map, x, y+1) ||
-               enq(&mut pq, &mut lake_map, nx, ny)
-            {
-                    break;
+            if enq!(x-1, y) || enq!(x+1, y) || enq!(x, y-1) || enq!(x, y+1) || enq!(nx, ny) {
+                break;
             }
-
         }
 
-        lake_map.map(|h| {
-            match h {
-                h if h < -1.0 => 1.0,
-                h if h <  0.0 => 0.0,
-                h => h,
-            }
-        });
+        for point in points.into_iter() {
+            lakes[point] = 1.0;
+        }
     }
 
-    let _gfx_depth_fun = |min: f32, max: f32, height: f32| {
-        (1.0 - (height-min) / (max-min)).powf(1.2)
-    };
-    let water_level_fun = |_, max, _| max;
-    adjust_depth(map, &mut lake_map, water_level_fun);
-
-    lake_map
-}
-
-fn adjust_depth<F>(terrain: &Map, lakes: &mut Map, depth_fun: F) 
-    where F: Fn(f32, f32, f32) -> f32
-{
-    let width = terrain.width();
-    let height = terrain.height();
-
     let mut groups = vec![vec![0usize; height]; width];
-    let mut extrema = vec![(0.0, 0.0)];
-    let mut area = vec![0usize];
+    let mut max = vec![0.0];
+    let mut area = vec![0];
 
     for x in 0..width {
         for y in 0..height {
             if groups[x][y] == 0 && lakes[(x, y)] > 0.0 {
 
-                let group = extrema.len();
-                extrema.push((std::f32::MAX, std::f32::MIN));
+                let group = max.len();
+                max.push(ocean);
                 area.push(0);
 
-                let mut q = Vec::new();
-                q.push((x, y)); groups[x][y] = group;
+                let mut queue = Vec::new();
 
-                while let Some((x, y)) = q.pop() {
+                macro_rules! enq {
+                    ($x: expr, $y: expr) => {
+                        let (x, y) = ($x, $y);
+                        if groups[x][y] == 0 && lakes[(x, y)] > 0.0 {
+                            queue.push((x, y));
+                            groups[x][y] = group;
+                        }
+                    };
+                }
 
+                enq!(x, y);
+
+                while let Some((x, y)) = queue.pop() {
                     area[group] += 1;
-                    let altitude = terrain[(x, y)];
-                    let (min, max) = extrema[group];
-                    extrema[group] = (min.min(altitude), max.max(altitude));
+                    max[group] = max[group].max(map[(x, y)]);
 
-                    if x > 0 && groups[x-1][y] == 0 && lakes[(x-1, y)] > 0.0 {
-                        q.push((x-1, y));
-                        groups[x-1][y] = group;
-                    }
-                    if x < width-1 && groups[x+1][y] == 0 && lakes[(x+1, y)] > 0.0 {
-                        q.push((x+1, y));
-                        groups[x+1][y] = group;
-                    }
-                    if y > 0 && groups[x][y-1] == 0 && lakes[(x, y-1)] > 0.0 {
-                        q.push((x, y-1));
-                        groups[x][y-1] = group;
-                    }
-                    if y < height-1 && groups[x][y+1] == 0 && lakes[(x, y+1)] > 0.0 {
-                        q.push((x, y+1));
-                        groups[x][y+1] = group;
-                    }
+                    let next = |val, limit| val + (val+1 < limit) as usize;
+                    let prev = |val| val - (val > 0) as usize;
+
+                    enq!(prev(x), y);
+                    enq!(next(x, width), y);
+                    enq!(x, prev(y));
+                    enq!(x, next(y, height));
                 }
             }
 
             let group = groups[x][y];
-            let (min, max) = extrema[group];
-            let altitude = terrain[(x, y)];
-
-            if area[group] > 5 {
-                lakes[(x, y)] = depth_fun(min, max, altitude);
+            if area[group] > 10 {
+                lakes[(x, y)] = max[group];
             } else {
                 lakes[(x, y)] = 0.0;
             }
         }
     }
+
+    lakes
 }
 
