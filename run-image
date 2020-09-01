@@ -1,7 +1,0 @@
-#! /bin/sh
-
-cd "$(dirname "$0")"
-
-cargo run --release && \
-rifle terrain.png
-
