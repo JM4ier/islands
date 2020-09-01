@@ -20,7 +20,7 @@ fn main() -> std::io::Result<()> {
 
     println!("-- Island Generator --\n");
 
-    let map = log("Generating Simplex Map", || simplex::simplex_map(size, size, true));
+    let map = log("Generating Simplex Map", || simplex::simplex_map(size, size));
     let mut river_map = log("Generating River Map", || river::create_flow_map(&map, water_range));
     let lake_map = log("Generating Lake Map", || lake::lake_map(&map, &river_map, ocean_height, water_range));
 
