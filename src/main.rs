@@ -23,11 +23,14 @@ fn main() -> std::io::Result<()> {
     let map = log("Generating Simplex Map", || {
         simplex::simplex_map(size, size)
     });
+    let targets = log("Finding Flow Targets", || {
+        flow::find_targets(&map, water_range)
+    });
     let mut river_map = log("Generating River Map", || {
-        river::create_flow_map(&map, water_range)
+        river::create_flow_map(&map, &targets, water_range)
     });
     let lake_map = log("Generating Lake Map", || {
-        lake::lake_map(&map, &river_map, ocean_height, water_range)
+        lake::lake_map(&map, &river_map, &targets, ocean_height, water_range)
     });
 
     log("Adjusting River Map", || river_map.map(|h| h.powf(0.45)));

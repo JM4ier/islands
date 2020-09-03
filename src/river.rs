@@ -5,11 +5,10 @@ use crate::{flow::*, map::*};
 /// It does so by distributing water on each cell of the map and drawing
 /// all of the waters path onto the flow_map, which it returns.
 ///
-pub fn create_flow_map(map: &Map, range: usize) -> Map {
+pub fn create_flow_map(map: &Map, cell_targets: &Vec<Vec<(usize, usize)>>, range: usize) -> Map {
     let width = map.width();
     let height = map.height();
     let mut flow_map = Map::new(width, height);
-    let circle = circle(range);
 
     assert!(range < (1 << 13));
 
@@ -21,7 +20,7 @@ pub fn create_flow_map(map: &Map, range: usize) -> Map {
     // finding how many times each cell is targeted
     for x in range..(width - range) {
         for y in range..(height - range) {
-            let (nx, ny) = next_target(map, x, y, &circle);
+            let (nx, ny) = cell_targets[x][y];
             if (nx, ny) != (x, y) {
                 targets[nx][ny] += 1;
             }
@@ -40,7 +39,7 @@ pub fn create_flow_map(map: &Map, range: usize) -> Map {
                         break;
                     }
 
-                    let (nx, ny) = next_target(map, x, y, &circle);
+                    let (nx, ny) = cell_targets[x][y];
 
                     draw_line(&mut flow_map, x as _, y as _, nx as _, ny as _, &|h| {
                         h + volume[x][y]
