@@ -1,11 +1,15 @@
-use crate::{flow::*, map::*};
+use crate::map::*;
 use std::collections::*;
 
-pub fn lake_map(map: &Map, rivers: &Map, ocean: f32, range: usize) -> Map {
+pub fn lake_map(
+    map: &Map,
+    rivers: &Map,
+    cell_targets: &Vec<Vec<(usize, usize)>>,
+    ocean: f32,
+    range: usize,
+) -> Map {
     let width = map.width();
     let height = map.height();
-
-    let circle = circle(range);
 
     let mut lake_origins = Vec::new();
     let mut lakes = Map::new(width, height);
@@ -19,7 +23,7 @@ pub fn lake_map(map: &Map, rivers: &Map, ocean: f32, range: usize) -> Map {
 
             if z < ocean || at_border(x, y) {
                 lakes[xy] = 1.0;
-            } else if xy == next_target(map, x, y, &circle) && rivers[xy] > 100.0 {
+            } else if xy == cell_targets[x][y] && rivers[xy] > 100.0 {
                 lake_origins.push(Point { x, y, z });
             }
         }
@@ -54,7 +58,7 @@ pub fn lake_map(map: &Map, rivers: &Map, ocean: f32, range: usize) -> Map {
                 break;
             }
 
-            let (nx, ny) = next_target(map, x, y, &circle);
+            let (nx, ny) = cell_targets[x][y];
             if enq!(x - 1, y) || enq!(x + 1, y) || enq!(x, y - 1) || enq!(x, y + 1) || enq!(nx, ny)
             {
                 break;

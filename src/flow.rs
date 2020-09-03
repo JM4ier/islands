@@ -1,7 +1,7 @@
 use crate::map::*;
 
 /// returns relative coordinates of adjacent fields within a certain range
-pub fn circle(range: usize) -> Vec<(isize, isize)> {
+fn circle(range: usize) -> Vec<(isize, isize)> {
     let mut positions = Vec::with_capacity(range * range);
 
     let range = range as isize;
@@ -17,11 +17,30 @@ pub fn circle(range: usize) -> Vec<(isize, isize)> {
     positions
 }
 
+/// finds the flow target for each position on the map and returns them in a `Vec`
+pub fn find_targets(map: &Map, range: usize) -> Vec<Vec<(usize, usize)>> {
+    let (width, height) = (map.width(), map.height());
+    let mut targets = vec![vec![(0, 0); height]; width];
+    let at_border = |x, y| x < range || x >= width - range || y < range || y >= height - range;
+    let circle = circle(range);
+
+    for x in 0..width {
+        for y in 0..height {
+            if at_border(x, y) {
+                targets[x][y] = (x, y);
+            } else {
+                targets[x][y] = next_target(map, x, y, &circle);
+            }
+        }
+    }
+    targets
+}
+
 /// Finds the lowest neighbor around a point on the map using the relative coordinates of all
 /// neighbors.
 /// Relative coordinates of all neighbors can be found once using the [`circle`](./fn.circle.html) function.
 #[inline]
-pub fn next_target(
+fn next_target(
     map: &Map,
     x: usize,
     y: usize,
