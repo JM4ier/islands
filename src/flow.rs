@@ -7,7 +7,7 @@ pub fn find_targets(map: &Map, range: usize) -> Vec<Vec<(usize, usize)>> {
     let (width, height) = (map.width(), map.height());
     let mut targets = vec![vec![(0, 0); height]; width];
 
-    let at_border = |x, y| x < range || x >= width - range || y < range || y >= height - range;
+    //let at_border = |x, y| x < range || x >= width - range || y < range || y >= height - range;
     let circle = |x, y| x * x + y * y < (range * range) as isize;
     let within_range = |x, y, (ox, oy)| circle(x as isize - ox as isize, y as isize - oy as isize);
 
@@ -21,48 +21,55 @@ pub fn find_targets(map: &Map, range: usize) -> Vec<Vec<(usize, usize)>> {
         }),
     ];
 
-    for x in 0..width {
+    // finding targets of the left and right border positions
+    for x in (0..range).chain((width - range)..width) {
         for y in 0..height {
-            if at_border(x, y) {
-                let points = points(range, &|nx, ny| {
-                    let (x, y, w, h) = (x as isize, y as isize, width as isize, height as isize);
-                    nx >= -x && ny >= -y && x + nx < w && y + ny < h && circle(nx, ny)
-                });
-                targets[x][y] = next_target(map, x, y, &points);
-            } else {
-                let mut lowest = f32::MAX;
-                let mut target = (x, y);
-                let mut rest_idx = 0;
+            targets[x][y] = next_target(map, x, y, &rest_points[0], true);
+        }
+    }
 
-                // check if target of x neighbor can be used
-                let tx = targets[x - 1][y];
-                if within_range(x, y, tx) {
-                    rest_idx += 1;
-                    lowest = map[tx];
-                    target = tx;
-                }
+    // finding targets of the upper and lower border positions
+    for y in (0..range).chain((height - range)..height) {
+        for x in 0..width {
+            targets[x][y] = next_target(map, x, y, &rest_points[0], true);
+        }
+    }
 
-                // check if target of y neighbor can be used
-                let ty = targets[x][y - 1];
-                if within_range(x, y, ty) {
-                    rest_idx += 2;
-                    let h = map[ty];
-                    if h < lowest {
-                        lowest = h;
-                        target = ty;
-                    }
-                }
+    // finding targets of the center, calling `next_target` as few times as possible
+    for x in range..(width - range) {
+        for y in range..(height - range) {
+            let mut lowest = f32::MAX;
+            let mut target = (x, y);
+            let mut rest_idx = 0;
 
-                // check if there is a better minimum in the points
-                // the previous neighbors didn't reach but this point does
-                let t = next_target(map, x, y, &rest_points[rest_idx]);
-                let h = map[t];
-                if h < lowest {
-                    target = t;
-                }
-
-                targets[x][y] = target;
+            // check if target of x neighbor can be used
+            let tx = targets[x - 1][y];
+            if within_range(x, y, tx) {
+                rest_idx += 1;
+                lowest = map[tx];
+                target = tx;
             }
+
+            // check if target of y neighbor can be used
+            let ty = targets[x][y - 1];
+            if within_range(x, y, ty) {
+                rest_idx += 2;
+                let h = map[ty];
+                if h < lowest {
+                    lowest = h;
+                    target = ty;
+                }
+            }
+
+            // check if there is a better minimum in the points
+            // the previous neighbors didn't reach but this point does
+            let t = next_target(map, x, y, &rest_points[rest_idx], false);
+            let h = map[t];
+            if h < lowest {
+                target = t;
+            }
+
+            targets[x][y] = target;
         }
     }
 
@@ -94,6 +101,7 @@ fn next_target(
     x: usize,
     y: usize,
     neighbor_positions: &[(isize, isize)],
+    check_coordinates: bool,
 ) -> (usize, usize) {
     let (mut nx, mut ny) = (x, y); // next x,y
     let mut lowest = f32::MAX; // lowest z coordinate of neighbors
@@ -102,8 +110,16 @@ fn next_target(
 
     for (dx, dy) in neighbor_positions.iter() {
         // absolute x,y coordinate of neighbors
-        let px = (x + dx) as usize;
-        let py = (y + dy) as usize;
+        let px = x + dx;
+        let py = y + dy;
+
+        if check_coordinates
+            && (px < 0 || px >= map.width() as _ || py < 0 || py >= map.height() as _)
+        {
+            continue;
+        }
+
+        let (px, py) = (px as usize, py as usize);
 
         // find lowest neighbor
         let height = map[(px, py)];
@@ -186,9 +202,9 @@ fn check_dp_solution() {
     let circle = |x, y| x * x + y * y < (range * range) as isize;
     let points = points(range, &circle);
 
-    for x in range..(size - range) {
-        for y in range..(size - range) {
-            let target = next_target(&map, x, y, &points);
+    for x in 0..size {
+        for y in 0..size {
+            let target = next_target(&map, x, y, &points, true);
 
             // Check if found _a_ minimum, not the specific minimum the target function would have
             // found. If the height is the same, but the coordinates are different, there are
