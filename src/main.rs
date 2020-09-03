@@ -18,7 +18,9 @@ fn main() -> std::io::Result<()> {
     let water_range = 6;
     let ocean_height = 20.0;
 
-    println!("-- Island Generator --\n");
+    println!("\n-- Island Generator --\n");
+    println!("Generating a {}x{} island.", size, size);
+    let start_time = std::time::SystemTime::now();
 
     let map = log("Generating Simplex Map", || {
         simplex::simplex_map(size, size)
@@ -63,7 +65,8 @@ fn main() -> std::io::Result<()> {
         })?;
     }
 
-    println!();
+    let elapsed = start_time.elapsed().expect("Timing Error.");
+    println!("Total\t\t\t[{:.3} s]\n", elapsed.as_secs_f32());
 
     Ok(())
 }
