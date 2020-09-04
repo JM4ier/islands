@@ -3,6 +3,8 @@ use crate::map::*;
 /// finds the flow target for each position on the map and returns them in a `Vec`
 pub fn find_targets(map: &Map, range: usize) -> Vec<Vec<(usize, usize)>> {
     assert!(range >= 1);
+    assert!(range < map.width());
+    assert!(range < map.height());
 
     let (width, height) = (map.width(), map.height());
     let mut targets = vec![vec![(0, 0); height]; width];
@@ -29,8 +31,8 @@ pub fn find_targets(map: &Map, range: usize) -> Vec<Vec<(usize, usize)>> {
     }
 
     // finding targets of the upper and lower border positions
-    for y in (0..range).chain((height - range)..height) {
-        for x in 0..width {
+    for x in range..(width - range) {
+        for y in (0..range).chain((height - range)..height) {
             targets[x][y] = next_target(map, x, y, &rest_points[0], true);
         }
     }

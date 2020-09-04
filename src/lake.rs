@@ -1,29 +1,21 @@
 use crate::map::*;
 use std::collections::*;
 
-pub fn lake_map(
-    map: &Map,
-    rivers: &Map,
-    cell_targets: &Vec<Vec<(usize, usize)>>,
-    ocean: f32,
-    range: usize,
-) -> Map {
+pub fn lake_map(map: &Map, rivers: &Map, targets: &Vec<Vec<(usize, usize)>>, ocean: f32) -> Map {
     let width = map.width();
     let height = map.height();
 
     let mut lake_origins = Vec::new();
     let mut lakes = Map::new(width, height);
 
-    let at_border = |x, y| x < range || x >= width - range || y < range || y >= height - range;
-
     for x in 0..width {
         for y in 0..height {
             let xy = (x, y);
             let z = map[xy];
 
-            if z < ocean || at_border(x, y) {
+            if z < ocean {
                 lakes[xy] = 1.0;
-            } else if xy == cell_targets[x][y] && rivers[xy] > 100.0 {
+            } else if xy == targets[x][y] && rivers[xy] > 100.0 {
                 lake_origins.push(Point { x, y, z });
             }
         }
@@ -54,11 +46,11 @@ pub fn lake_map(
         }
 
         while let Some(Point { x, y, z }) = queue.pop() {
-            if z < ocean || at_border(x, y) {
+            if z < ocean {
                 break;
             }
 
-            let (nx, ny) = cell_targets[x][y];
+            let (nx, ny) = targets[x][y];
             if enq!(x - 1, y) || enq!(x + 1, y) || enq!(x, y - 1) || enq!(x, y + 1) || enq!(nx, ny)
             {
                 break;

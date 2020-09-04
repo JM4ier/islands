@@ -5,12 +5,10 @@ use crate::{flow::*, map::*};
 /// It does so by distributing water on each cell of the map and drawing
 /// all of the waters path onto the flow_map, which it returns.
 ///
-pub fn create_flow_map(map: &Map, cell_targets: &Vec<Vec<(usize, usize)>>, range: usize) -> Map {
+pub fn create_flow_map(map: &Map, cell_targets: &Vec<Vec<(usize, usize)>>) -> Map {
     let width = map.width();
     let height = map.height();
     let mut flow_map = Map::new(width, height);
-
-    assert!(range < (1 << 13));
 
     // how many other cells 'target' this cell
     let mut targets = vec![vec![0i32; height]; width];
@@ -18,8 +16,8 @@ pub fn create_flow_map(map: &Map, cell_targets: &Vec<Vec<(usize, usize)>>, range
     let mut volume = vec![vec![1.0f32; height]; width];
 
     // finding how many times each cell is targeted
-    for x in range..(width - range) {
-        for y in range..(height - range) {
+    for x in 0..width {
+        for y in 0..height {
             let (nx, ny) = cell_targets[x][y];
             if (nx, ny) != (x, y) {
                 targets[nx][ny] += 1;
@@ -27,17 +25,13 @@ pub fn create_flow_map(map: &Map, cell_targets: &Vec<Vec<(usize, usize)>>, range
         }
     }
 
-    for x in range..(width - range) {
-        for y in range..(height - range) {
+    for x in 0..width {
+        for y in 0..height {
             if targets[x][y] == 0 {
                 let (mut x, mut y) = (x, y);
                 loop {
                     // prevent processing this cell twice
                     targets[x][y] = -1;
-
-                    if x < range || x >= width - range || y < range || y >= height - range {
-                        break;
-                    }
 
                     let (nx, ny) = cell_targets[x][y];
 
