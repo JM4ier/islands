@@ -3,6 +3,7 @@ use std::fs::File;
 mod flow;
 mod geometry;
 mod lake;
+mod layer;
 mod map;
 mod obj;
 mod river;
