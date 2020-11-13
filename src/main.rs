@@ -10,7 +10,12 @@ mod river;
 mod simplex;
 mod water_terrain;
 
-fn main() -> std::io::Result<()> {
+fn main() {
+    layer::vis::run_visualization().unwrap();
+}
+
+#[allow(unused)]
+fn old_main() -> std::io::Result<()> {
     let export_wetmap = true;
     let export_heightmap = true;
     let export_obj = false;

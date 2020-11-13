@@ -5,6 +5,9 @@ use std::collections::*;
 
 use crate::geometry::{Line2, Vector2};
 
+/// Visualization
+pub mod vis;
+
 pub type ChunkCoord = (i64, i64);
 
 macro_rules! layer_world {
@@ -121,7 +124,7 @@ pub struct Voronoi(Vec<Vector2>);
 
 pub type Adjacency = Vec<ChunkCoord>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CellType {
     Strong,
     Weak,
