@@ -1,5 +1,4 @@
 #![allow(unused)]
-
 use rand::prelude::*;
 use rand_pcg::Pcg64;
 use std::collections::*;
@@ -120,8 +119,7 @@ impl Default for WorldParams {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Voronoi(Vec<Vector2>);
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Adjacency(Vec<ChunkCoord>);
+pub type Adjacency = Vec<ChunkCoord>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CellType {
@@ -237,7 +235,7 @@ layer_world!(World {
             }
         }
 
-        Adjacency(neighbors)
+        neighbors
     }}
 
     fn cell_type(self, coords: ChunkCoord) -> CellType {{
@@ -251,6 +249,50 @@ layer_world!(World {
             CellType::Ocean
         }
     }}
+
+    /// Searches the closest 'strong' Cell
+    ///
+    /// If it finds one within reach, that strong cell is returned,
+    /// otherwise the cell itself is returned
+    fn parent(self, coords: ChunkCoord) -> ChunkCoord {{
+        let mut strong_cell = coords;
+
+        let mut q = VecDeque::new();
+        let mut visited = HashSet::new();
+        q.push_back((0, coords));
+        visited.insert(coords);
+
+        while let Some((dist, cell)) = q.pop_front() {
+            if *self.cell_type(cell) == CellType::Strong {
+                strong_cell = cell;
+                break;
+            }
+            if dist < self.params.reach {
+                let adj = self.adjacency(cell);
+                for neighbor in adj {
+                    if !visited.contains(neighbor) {
+                        q.push_back((dist+1, *neighbor));
+                        visited.insert(*neighbor);
+                    }
+                }
+            }
+        }
+
+        strong_cell
+    }}
+
+    /// list of neighbors that are connected to this cell
+    fn connected(self, coords: ChunkCoord) -> Adjacency {{
+        let mut connected = Adjacency::new();
+        let neighbors = self.adjacency(coords).clone();
+        let parent = *self.parent(coords);
+        for n in neighbors.iter() {
+            if *self.parent(*n) == parent {
+                connected.push(*n);
+            }
+        }
+        connected
+    }}
 });
 
 impl World {
@@ -260,6 +302,6 @@ impl World {
         let y = ((y as u64) << 32) & !lower_mask; // lower 4 bytes of y shifted to the upper 4 bytes
         let chunk_mod = x | y;
         let seed = (self.seed ^ chunk_mod) + layer;
-        Pcg64::seed_from_u64(layer)
+        Pcg64::seed_from_u64(seed)
     }
 }
