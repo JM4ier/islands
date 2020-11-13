@@ -171,24 +171,29 @@ layer_world!(World {
         // note that there can be unneeded lines in this list which are covered by other lines
         let mut lines = surrounding.iter().map(|p| Line2::dividing_mid(center.clone(), p)).collect::<Vec<_>>();
 
-        let mut i = 0;
-        while i < lines.len() {
-            let prev = (i + lines.len() - 1) % lines.len();
-            let next = (i + 1) % lines.len();
-            if let Some(inter) = lines[prev].intersection(&lines[next]) {
-                let a = (center - lines[i].a).normalize();
-                let b = (inter - lines[i].a).normalize();
-                let c = (inter - center).normalize();
+        let mut needs_pass = true;
+        while needs_pass {
+            needs_pass = false;
+            let mut i = 0;
+            while i < lines.len() {
+                let prev = (i + lines.len() - 1) % lines.len();
+                let next = (i + 1) % lines.len();
+                if let Some(inter) = lines[prev].intersection(&lines[next]) {
+                    let a = (center - lines[i].a).normalize();
+                    let b = (inter - lines[i].a).normalize();
+                    let c = (inter - center).normalize();
 
-                if a.dot(&b) > 0.0 && a.dot(&c) < 0.0 {
-                    // acute angle -> line segment i is not needed
-                    lines.remove(i);
-                    continue;
+                    if a.dot(&b) > 0.0 && a.dot(&c) < 0.0 {
+                        // acute angle -> line segment i is not needed
+                        lines.remove(i);
+                        needs_pass = true;
+                        continue;
+                    }
+
                 }
 
+                i += 1;
             }
-
-            i += 1;
         }
 
         // find the vertex list as intersections of adjacent lines

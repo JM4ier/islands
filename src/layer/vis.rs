@@ -27,7 +27,7 @@ impl Game for Visualization {
 
     fn draw(&mut self, frame: &mut Frame, _timer: &Timer) {
         // Clear the current frame
-        frame.clear(Color::BLACK);
+        frame.clear(Color::WHITE);
 
         let scale = 50.0;
         let width = 20;
@@ -37,7 +37,7 @@ impl Game for Visualization {
         let mut linemesh = Mesh::new_with_tolerance(0.001);
         let mut centermesh = Mesh::new_with_tolerance(0.001);
 
-        let mut world = World::from_seed(420);
+        let mut world = World::from_seed(929);
 
         let p = |v: Vector2| Point::new(v.x, v.y);
 
@@ -49,19 +49,20 @@ impl Game for Visualization {
                 let cell_type = *world.cell_type(coord);
 
                 let mut color = match cell_type {
-                    CellType::Strong => Color::new(0.5, 0.0, 0.0, 1.0),
-                    CellType::Weak => Color::new(0.0, 0.5, 0.0, 1.0),
+                    CellType::Strong => Color::new(0.5, 0.5, 0.0, 1.0),
+                    CellType::Weak => Color::new(0.0, 1.0, 0.0, 1.0),
                     _ => Color::new(0.0, 0.0, 0.5, 1.0),
                 };
 
                 let center = *world.center(coord);
 
+                let center_size = 0.05;
                 centermesh.fill(
                     Shape::Rectangle(Rectangle {
-                        x: x as f32 + center.x,
-                        y: y as f32 + center.y,
-                        width: 0.1,
-                        height: 0.1,
+                        x: x as f32 + center.x - center_size,
+                        y: y as f32 + center.y - center_size,
+                        width: center_size,
+                        height: center_size,
                     }),
                     Color::new(1.0, 0.0, 1.0, 1.0),
                 );
@@ -82,11 +83,11 @@ impl Game for Visualization {
                     color,
                     0.05,
                 );
-                color.a = 0.2;
+                color.a = 0.6;
                 polyline.remove(polyline.len() - 1);
                 mesh.fill(Shape::Polyline { points: polyline }, color);
 
-                let connections = world.connected(coord).clone();
+                let connections = world.adjacency(coord).clone();
                 for neighbor in connections {
                     let ncenter = *world.center(neighbor);
 
@@ -97,7 +98,7 @@ impl Game for Visualization {
                         Shape::Polyline {
                             points: vec![p(from), p(to)],
                         },
-                        Color::new(1.0, 1.0, 0.0, 0.1),
+                        Color::new(1.0, 0.0, 0.0, 1.0),
                         0.05,
                     );
                 }
