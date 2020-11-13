@@ -113,7 +113,7 @@ impl Default for WorldParams {
         Self {
             cell_size: 500,
             strong_prob: 0.1,
-            weak_prob: 0.6,
+            weak_prob: 0.3,
             reach: 5,
         }
     }
@@ -136,7 +136,9 @@ layer_world!(World {
     /// Find the center of each voronoi cell
     fn center(self, coords: ChunkCoord) -> Vector2 {{
         let mut rng = self.chunk_layer_rng(coords, 0);
-        Vector2::new(rng.gen(), rng.gen())
+        let randomness = 0.9;
+        let map = |v: f32| randomness * v + (1.0 - randomness) * 0.5;
+        Vector2::new(map(rng.gen()), map(rng.gen()))
     }}
 
     /// Find a voronoi cell for each chunk
@@ -176,8 +178,9 @@ layer_world!(World {
             if let Some(inter) = lines[prev].intersection(&lines[next]) {
                 let a = (center - lines[i].a).normalize();
                 let b = (inter - lines[i].a).normalize();
+                let c = (inter - center).normalize();
 
-                if a.dot(&b) > 0.0 {
+                if a.dot(&b) > 0.0 && a.dot(&c) < 0.0 {
                     // acute angle -> line segment i is not needed
                     lines.remove(i);
                     continue;
@@ -265,23 +268,26 @@ layer_world!(World {
         q.push_back((0, coords));
         visited.insert(coords);
 
-        while let Some((dist, cell)) = q.pop_front() {
-            if *self.cell_type(cell) == CellType::Strong {
-                strong_cell = cell;
-                break;
-            }
-            if dist < self.params.reach {
-                let adj = self.adjacency(cell);
-                for neighbor in adj {
-                    if !visited.contains(neighbor) {
-                        q.push_back((dist+1, *neighbor));
-                        visited.insert(*neighbor);
+        if *self.cell_type(coords) == CellType::Ocean {
+            coords
+        } else {
+            while let Some((dist, cell)) = q.pop_front() {
+                if *self.cell_type(cell) == CellType::Strong {
+                    strong_cell = cell;
+                    break;
+                }
+                if dist < self.params.reach {
+                    let adj = self.adjacency(cell);
+                    for neighbor in adj {
+                        if !visited.contains(neighbor) {
+                            q.push_back((dist+1, *neighbor));
+                            visited.insert(*neighbor);
+                        }
                     }
                 }
             }
+            strong_cell
         }
-
-        strong_cell
     }}
 
     /// list of neighbors that are connected to this cell
