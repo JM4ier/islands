@@ -12,7 +12,8 @@ macro_rules! layer_world {
     (
         $name:ident {
             $(
-                fn $layer_name:ident ($self:ident, $coord_arg:ident) -> $layer_ty:ty {
+                $(#[$layer_meta:meta])*
+                fn $layer_name:ident ($self:ident, $coord_arg:ident : $coord_ty:ty) -> $layer_ty:ty {
                     $layer_impl:expr
                 }
             )*
@@ -20,11 +21,12 @@ macro_rules! layer_world {
     ) => {
         pub type Seed = u64;
 
+        #[derive(Debug, PartialEq)]
         pub struct $name {
             seed: Seed,
             params: WorldParams,
             $(
-                $layer_name: HashMap<ChunkCoord, $layer_ty>,
+                $layer_name: HashMap<$coord_ty, $layer_ty>,
             )*
         }
 
@@ -37,7 +39,8 @@ macro_rules! layer_world {
             }
 
             $(
-                pub fn $layer_name(&mut $self, $coord_arg: ChunkCoord) -> &$layer_ty {
+                $(#[$layer_meta])*
+                pub fn $layer_name(&mut $self, $coord_arg: $coord_ty) -> &$layer_ty {
                     if !$self.$layer_name.contains_key(&$coord_arg) {
                         let val = $layer_impl;
                         $self.$layer_name.insert($coord_arg, val);
@@ -58,16 +61,50 @@ macro_rules! layer_world {
                 }
             }
         }
+
+        #[test]
+        fn world_layer_commutativity() {
+            let (width, height) = (20, 20);
+            let seed: u64 = 3498398439434;
+            let mut indices = Vec::new();
+            for x in 0..width {
+                for y in 0..height {
+                    indices.push((x, y));
+                }
+            }
+
+            let mut shuf_indices = indices.clone();
+            let mut rng = rand::thread_rng();
+            shuf_indices.shuffle(&mut rng);
+
+            assert!(indices != shuf_indices);
+
+            $(
+                let mut world1 = World::from_seed(seed);
+                let mut world2 = World::from_seed(seed);
+
+                for idx in indices.iter() {
+                    world1.$layer_name(*idx);
+                }
+                for idx in shuf_indices.iter() {
+                    world2.$layer_name(*idx);
+                }
+
+                assert_eq!(world1, world2, "Commutativity of layer {} is violated", stringify!($layer_name));
+            )*
+        }
     };
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WorldParams {
     cell_size: usize,
     strong_prob: f32,
     weak_prob: f32,
     reach: usize,
 }
+
+impl Eq for WorldParams {}
 
 impl Default for WorldParams {
     fn default() -> Self {
@@ -80,13 +117,13 @@ impl Default for WorldParams {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Voronoi(Vec<Vector2>);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Adjacency(Vec<ChunkCoord>);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CellType {
     Strong,
     Weak,
@@ -94,12 +131,15 @@ pub enum CellType {
 }
 
 layer_world!(World {
-    fn center(self, coords) -> Vector2 {{
+
+    /// Find the center of each voronoi cell
+    fn center(self, coords: ChunkCoord) -> Vector2 {{
         let mut rng = self.chunk_layer_rng(coords, 0);
         Vector2::new(rng.gen(), rng.gen())
     }}
 
-    fn voronoi(self, coords) -> Voronoi {{
+    /// Find a voronoi cell for each chunk
+    fn voronoi(self, coords: ChunkCoord) -> Voronoi {{
         let (x, y) = coords;
 
         // center of this voronoi cell
@@ -158,7 +198,8 @@ layer_world!(World {
         Voronoi(vertices)
     }}
 
-    fn adjacency(self, coords) -> Adjacency {{
+    /// Adjacent Voronoi cells
+    fn adjacency(self, coords: ChunkCoord) -> Adjacency {{
         let (x, y) = coords;
         let Voronoi(shape) = self.voronoi(coords).clone();
         let center = self.center(coords).clone();
@@ -199,7 +240,7 @@ layer_world!(World {
         Adjacency(neighbors)
     }}
 
-    fn cell_type(self, coords) -> CellType {{
+    fn cell_type(self, coords: ChunkCoord) -> CellType {{
         let mut rng = self.chunk_layer_rng(coords, 3);
         let val = rng.gen::<f32>();
         if val < self.params.strong_prob {
