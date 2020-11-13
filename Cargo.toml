@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 fuss = "0.2.2"
 png = "0.16.7"
-cgmath = "0.17.0"
 coffee = { version = "0.4.1", features = ["opengl"] }
 rand = "0.7.3"
 rand_pcg = "0.2.1"
+nalgebra =  "0.23.0"

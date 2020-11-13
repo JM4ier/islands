@@ -55,7 +55,7 @@ impl Map {
     /// exports the heightmap as obj mesh
     #[allow(unused)]
     pub fn export_mesh<W: Write>(&self, obj: &mut ObjWriter<W>) -> Result<()> {
-        let vertex = |x, y| Vector::new(x as _, y as _, self[(x, y)]);
+        let vertex = |x, y| Vector3::new(x as _, y as _, self[(x, y)]);
 
         for x in 0..self.width() - 1 {
             for y in 0..self.height() - 1 {

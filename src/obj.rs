@@ -19,7 +19,7 @@ impl<'w, W: Write> ObjWriter<'w, W> {
 }
 
 impl<'w, W: Write> ObjWriter<'w, W> {
-    fn vertex(&mut self, vector: &Vector) -> std::io::Result<()> {
+    fn vertex(&mut self, vector: &Vector3) -> std::io::Result<()> {
         let line = format!("v {} {} {}\n", vector.x, vector.y, vector.z);
         self.writer.write_all(line.as_bytes())
     }
@@ -47,7 +47,7 @@ impl<'w, W: Write> ObjWriter<'w, W> {
 
     #[allow(unused)]
     /// writes a line to the buffer
-    pub fn line(&mut self, vertices: &[Vector]) -> std::io::Result<()> {
+    pub fn line(&mut self, vertices: &[Vector3]) -> std::io::Result<()> {
         let mut line = String::from("l");
         for vertex in vertices.iter() {
             self.vertex(vertex)?;
