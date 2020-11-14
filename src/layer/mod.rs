@@ -68,7 +68,7 @@ macro_rules! layer_world {
 
         #[test]
         fn world_layer_commutativity() {
-            let (width, height) = (20, 20);
+            let (width, height) = (8, 8);
             let seed: u64 = 3498398439434;
             let mut indices = Vec::new();
             for x in 0..width {
@@ -113,9 +113,9 @@ impl Eq for WorldParams {}
 impl Default for WorldParams {
     fn default() -> Self {
         Self {
-            cell_size: 100,
+            cell_size: 200,
             strong_prob: 0.1,
-            weak_prob: 0.3,
+            weak_prob: 0.4,
             reach: 5,
         }
     }
@@ -347,7 +347,10 @@ layer_world!(World {
     }}
 
     fn heightmap(self, coords: ChunkCoord) -> Map {{
-        assert_eq!(*self.cell_type(coords), CellType::Strong);
+        if *self.cell_type(coords) != CellType::Strong {
+            // only calculate heightmap for Strong "root" cells
+            return Map::new(0, 0);
+        }
         let (x, y) = coords;
 
         let neighbors = self.indirect_neighbors(coords);
@@ -423,7 +426,15 @@ layer_world!(World {
         let edge_scaling = polygon_scaling(real_width, real_height, shapes, oceans);
         noise.scale(&edge_scaling);
 
-        noise
+        let water_range = 6;
+        let ocean_height = 0.15;
+
+        let targets = crate::flow::find_targets(&noise, water_range);
+        let mut river_map = crate::river::create_flow_map(&noise, &targets);
+        let lake_map = crate::lake::lake_map(&noise, &river_map, &targets, ocean_height);
+        river_map.map(|h| h.powf(0.45));
+        let water_terrain = crate::water_terrain::create_heightmap(&river_map, &lake_map);
+        water_terrain
     }}
 });
 
@@ -510,14 +521,20 @@ fn polygon_scaling(
 
         map[(x, y)] = z;
 
-        let inc_z = (z + slope).min(1.0);
-
         let from = |x| if x > 0 { x - 1 } else { x };
         let to = |x, bound| if x < bound - 1 { x + 1 } else { x };
 
         for dx in from(x)..=to(x, width) {
             for dy in from(y)..=to(y, height) {
                 if map[(dx, dy)] <= 0.0 {
+                    // increase slope for diagonal entries, as more distance is covered
+                    let slope = if dx != x && dy != y {
+                        slope * 2.0f32.sqrt()
+                    } else {
+                        slope
+                    };
+
+                    let inc_z = (z + slope).min(1.0);
                     let z = if in_polygon(dx, dy) { inc_z } else { z };
                     queue.push(Point { x: dx, y: dy, z });
                 }
