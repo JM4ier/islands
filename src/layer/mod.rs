@@ -262,28 +262,30 @@ layer_world!(World {
                 let offset = Vector2::new((nx-x) as _, (ny-y) as _);
                 let ncenter = offset + self.center(n);
 
-                // if this point lies on an edge of the voronoi shape, the neighbor is adjacent
-                let mid = 0.5 * (center + ncenter);
+                let Voronoi(nshape) = self.voronoi(n).clone();
 
-                for idx in 0..shape.len() {
-                    let next = (idx+1) % shape.len();
-
-                    let from = shape[idx];
-                    let to = shape[next];
-
-                    let a = (to-from).normalize();
-                    let b = (mid-from).normalize();
-
-                    if a.dot(&b) > 0.9999 {
-                        neighbors.push(n);
-                        break;
+                let mut corners = 0;
+                for p in shape.iter() {
+                    for np in nshape.iter() {
+                        let np = np + offset;
+                        if (np-p).magnitude() < 0.001 {
+                            // common corner
+                            corners += 1;
+                        }
                     }
                 }
 
+                if corners > 0 && *self.cell_type(n) != CellType::Ocean {
+                    neighbors.push(n);
+                }
             }
         }
 
-        neighbors
+        if *self.cell_type(coords) == CellType::Ocean {
+            Vec::new()
+        } else {
+            neighbors
+        }
     }}
 
     fn cell_type(self, coords: ChunkCoord) -> CellType {{
@@ -310,31 +312,27 @@ layer_world!(World {
         q.push_back((0, coords));
         visited.insert(coords);
 
-        if *self.cell_type(coords) == CellType::Ocean {
-            coords
-        } else {
-            while let Some((dist, cell)) = q.pop_front() {
-                if *self.cell_type(cell) == CellType::Strong {
-                    strong_cell = cell;
-                    break;
-                }
-                if dist < self.params.reach {
-                    let adj = self.adjacency(cell);
-                    for neighbor in adj {
-                        if !visited.contains(neighbor) {
-                            q.push_back((dist+1, *neighbor));
-                            visited.insert(*neighbor);
-                        }
+        while let Some((dist, cell)) = q.pop_front() {
+            if *self.cell_type(cell) == CellType::Strong {
+                strong_cell = cell;
+                break;
+            }
+            if dist < self.params.reach {
+                let adj = self.adjacency(cell);
+                for neighbor in adj {
+                    if !visited.contains(neighbor) {
+                        q.push_back((dist+1, *neighbor));
+                        visited.insert(*neighbor);
                     }
                 }
             }
-            strong_cell
         }
+        strong_cell
     }}
 
     /// list of neighbors that are connected to this cell
     fn connected(self, coords: ChunkCoord) -> Adjacency {{
-        let mut connected = Adjacency::new();
+        let mut connected = Vec::new();
         let neighbors = self.adjacency(coords).clone();
         let parent = *self.parent(coords);
         for n in neighbors.iter() {
