@@ -1,7 +1,7 @@
 use crate::map::Map;
 
 /// returns a simplex based height map with a central raise and edges scaled down
-pub fn simplex_map(width: usize, height: usize) -> Map {
+pub fn scaled_simplex_map(width: usize, height: usize) -> Map {
     // simplex noise parameters
     let iter = 4;
     let persistence = 0.3;
@@ -49,5 +49,34 @@ pub fn simplex_map(width: usize, height: usize) -> Map {
         }
     }
 
+    map
+}
+
+/// returns a simplex based heightmap with no edge scaling
+pub fn simplex_map(
+    width: usize,
+    height: usize,
+    offset: (f32, f32),
+    scale: f32,
+    seed: Vec<usize>,
+) -> Map {
+    let iter = 4;
+    let persistence = 0.3;
+
+    let simplex = fuss::Simplex::from_seed(seed);
+    let mut map = Map::new(width, height);
+    for x in 0..width {
+        for y in 0..height {
+            let s = simplex.sum_octave_2d(
+                iter,
+                offset.0 + x as f32,
+                offset.1 + y as f32,
+                persistence,
+                scale,
+            );
+            let s = 0.5 * (s + 1.0);
+            map[(x, y)] = s;
+        }
+    }
     map
 }

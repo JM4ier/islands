@@ -37,6 +37,21 @@ impl Map {
         }
     }
 
+    /// scales this map with the other map by multiplying each entry
+    ///
+    /// `same` and `other` need to have the same dimensions
+    pub fn scale(&mut self, other: &Map) {
+        let (w, h) = (self.width(), self.height());
+        assert_eq!(w, other.width());
+        assert_eq!(h, other.height());
+
+        for x in 0..w {
+            for y in 0..h {
+                self[(x, y)] *= other[(x, y)];
+            }
+        }
+    }
+
     /// Returns the minimum and maximum value of the map
     pub fn minmax(&self) -> (f32, f32) {
         let mut min = std::f32::MAX;

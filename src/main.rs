@@ -11,7 +11,19 @@ mod simplex;
 mod water_terrain;
 
 fn main() {
-    layer::vis::run_visualization().unwrap();
+    let mut world = layer::World::from_seed(0);
+    let mut x = 0;
+    let root = loop {
+        if *world.cell_type((x, 0)) == layer::CellType::Ocean {
+            x += 1;
+        } else {
+            break *world.parent((x, 0));
+        }
+    };
+    let heightmap = world.heightmap(root);
+    let heightmap_file = File::create("heightmap.png").unwrap();
+    heightmap.export_image(heightmap_file).unwrap();
+    //layer::vis::run_visualization().unwrap();
 }
 
 #[allow(unused)]
@@ -29,7 +41,7 @@ fn old_main() -> std::io::Result<()> {
     let start_time = std::time::SystemTime::now();
 
     let map = log("Generating Simplex Map", || {
-        simplex::simplex_map(size, size)
+        simplex::scaled_simplex_map(size, size)
     });
     let targets = log("Finding Flow Targets", || {
         flow::find_targets(&map, water_range)

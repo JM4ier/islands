@@ -113,7 +113,7 @@ impl Eq for WorldParams {}
 impl Default for WorldParams {
     fn default() -> Self {
         Self {
-            cell_size: 500,
+            cell_size: 100,
             strong_prob: 0.1,
             weak_prob: 0.3,
             reach: 5,
@@ -350,27 +350,185 @@ layer_world!(World {
         assert_eq!(*self.cell_type(coords), CellType::Strong);
         let (x, y) = coords;
 
-        let (min, max, shapes) = self.island_geometry(coords);
+        let neighbors = self.indirect_neighbors(coords);
+
+        let mut min = Vector2::new(x as _, y as _);
+        let mut max = min;
+        let mut shapes = Vec::new();
+        let mut oceans = Vec::new();
+
+        for cell in neighbors {
+            let (nx, ny) = cell;
+
+            // find adjacent oceans
+            let adj = self.adjacent(cell).clone();
+            for a in adj {
+                if *self.cell_type(a) == CellType::Ocean {
+                    oceans.push(a);
+                }
+            }
+
+            // clone shape
+            let Voronoi(shape) = self.voronoi(cell);
+            let offset = Vector2::new(nx as _, ny as _);
+
+            shapes.push(shape.iter().map(|v| v + offset).collect::<Vec<_>>());
+
+            // find min/max of landmass
+            for vertex in shape {
+                let vertex = vertex + offset;
+                min.x = min.x.min(vertex.x);
+                min.y = min.y.min(vertex.y);
+                max.x = max.x.max(vertex.x);
+                max.y = max.y.max(vertex.y);
+            }
+        }
+
+        // remove duplicates of ocean cells
+        oceans.sort();
+        oceans.dedup();
+
         let chunk_width = max.x - min.x;
         let chunk_height = max.y - min.y;
 
         let scale = self.params.cell_size;
-        let real_width = (chunk_width + 1.0) as usize * scale;
-        let real_height = (chunk_height + 1.0) as usize * scale;
+        let fscale = scale as f32;
+        let real_width = ((chunk_width + 1.0) * fscale) as usize;
+        let real_height = ((chunk_height + 1.0) * fscale) as usize;
+
+        let mapping = |v: Vector2| (v - min) * fscale;
 
         let shapes = shapes
             .into_iter()
             .map(
-                |Voronoi(shape)|
-                shape.into_iter().map(|v| (v - min) * scale as f32).collect::<Vec<_>>()
+                |shape|
+                shape.into_iter().map(mapping).collect::<Vec<_>>()
             )
             .collect::<Vec<_>>();
 
-        // TODO find enclosed oceans
+        // remove oceans outside bounding box
+        let oceans = oceans.into_iter()
+            .map(|(x, y)| {
+                let v = Vector2::new(x as _, y as _) + self.cell_center((x, y));
+                mapping(v)
+            })
+            .filter(|&v| v.x >= 0.0 && v.y >= 0.0 && v.x < (real_width as _) && v.y < (real_height as _))
+            .map(|v| (v.x as usize, v.y as usize))
+            .collect::<Vec<_>>();
 
-        todo!()
+        let mut rng = self.chunk_layer_rng(coords, 4);
+        let seed = vec![0; 10].into_iter().map(|_| rng.gen()).collect();
+        let mut noise = crate::simplex::simplex_map(real_width, real_height, (min.x, min.y), 0.01, seed);
+
+        let edge_scaling = polygon_scaling(real_width, real_height, shapes, oceans);
+        noise.scale(&edge_scaling);
+
+        noise
     }}
 });
+
+fn polygon_scaling(
+    width: usize,
+    height: usize,
+    shapes: Vec<Vec<Vector2>>,
+    oceans: Vec<(usize, usize)>,
+) -> Map {
+    use crate::map::Point;
+
+    let slope = 0.03;
+    let mut map = Map::new(width, height);
+
+    let ocean_height = 1e-6;
+    let mut queue = BinaryHeap::new();
+
+    for x in 0..width {
+        queue.push(Point {
+            x,
+            y: 0,
+            z: ocean_height,
+        });
+        queue.push(Point {
+            x,
+            y: height - 1,
+            z: ocean_height,
+        });
+    }
+
+    for y in 1..(height - 1) {
+        queue.push(Point {
+            x: 0,
+            y,
+            z: ocean_height,
+        });
+        queue.push(Point {
+            x: width - 1,
+            y,
+            z: ocean_height,
+        });
+    }
+
+    for &(x, y) in oceans.iter() {
+        queue.push(Point {
+            x,
+            y,
+            z: ocean_height,
+        });
+    }
+
+    let inside = |a: Vector2, b: Vector2, c: Vector2| {
+        let dir = (b - a).normalize();
+        let perp_dir = Vector2::new(-dir.y, dir.x);
+        perp_dir.dot(&(c - a)) > 0.0
+    };
+
+    let in_polygon = |x, y| {
+        let c = Vector2::new(x as _, y as _);
+        for poly in shapes.iter() {
+            let mut outside = false;
+            for i in 0..poly.len() {
+                let a = poly[i];
+                let b = poly[(i + 1) % poly.len()];
+
+                if !inside(a, b, c) {
+                    outside = true;
+                    break;
+                }
+            }
+            if !outside {
+                return true;
+            }
+        }
+        false
+    };
+
+    while let Some(point) = queue.pop() {
+        let Point { x, y, z } = point;
+        if map[(x, y)] >= ocean_height {
+            // already edited at that point
+            continue;
+        }
+
+        map[(x, y)] = z;
+
+        let inc_z = (z + slope).min(1.0);
+
+        let from = |x| if x > 0 { x - 1 } else { x };
+        let to = |x, bound| if x < bound - 1 { x + 1 } else { x };
+
+        for dx in from(x)..=to(x, width) {
+            for dy in from(y)..=to(y, height) {
+                if map[(dx, dy)] <= 0.0 {
+                    let z = if in_polygon(dx, dy) { inc_z } else { z };
+                    queue.push(Point { x: dx, y: dy, z });
+                }
+            }
+        }
+    }
+
+    map.map(|v| (((v - 0.5) * std::f32::consts::PI).sin() + 1.0) * 0.5);
+
+    map
+}
 
 impl World {
     fn chunk_layer_rng(&self, (x, y): ChunkCoord, layer: u64) -> Pcg64 {
@@ -382,32 +540,13 @@ impl World {
         Pcg64::seed_from_u64(seed)
     }
 
-    fn island_geometry(&mut self, coords: ChunkCoord) -> (Vector2, Vector2, Vec<Voronoi>) {
-        let (x, y) = coords;
-
-        let mut min = Vector2::new(x as _, y as _);
-        let mut max = min;
-        let mut shapes = Vec::new();
-
+    fn indirect_neighbors(&mut self, coords: ChunkCoord) -> Vec<ChunkCoord> {
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
         visited.insert(coords);
         queue.push_back(coords);
 
         while let Some(cell) = queue.pop_front() {
-            let (nx, ny) = cell;
-            let Voronoi(shape) = self.voronoi(cell);
-            shapes.push(Voronoi(shape.clone()));
-            let offset = Vector2::new(nx as _, ny as _);
-
-            for vertex in shape {
-                let vertex = vertex + offset;
-                min.x = min.x.min(vertex.x);
-                min.y = min.y.min(vertex.y);
-                max.x = max.x.max(vertex.x);
-                max.y = max.y.max(vertex.y);
-            }
-
             for n in self.neighbors(cell) {
                 if !visited.contains(n) {
                     queue.push_back(*n);
@@ -415,7 +554,6 @@ impl World {
                 }
             }
         }
-
-        (min, max, shapes)
+        visited.into_iter().collect()
     }
 }
