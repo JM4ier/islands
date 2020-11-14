@@ -2,6 +2,7 @@ use crate::layer::*;
 use coffee::graphics::*;
 use coffee::load::Task;
 use coffee::*;
+use rand;
 
 pub fn run_visualization() -> Result<()> {
     Visualization::run(WindowSettings {
@@ -13,14 +14,22 @@ pub fn run_visualization() -> Result<()> {
     })
 }
 
-struct Visualization;
+struct Visualization {
+    world: World,
+}
 
 impl Game for Visualization {
     type Input = ();
     type LoadingScreen = ();
 
     fn load(_window: &Window) -> Task<Self> {
-        Task::succeed(|| Self)
+        let seed = rand::thread_rng().gen::<u64>();
+        let world = World::from_seed(seed);
+
+        println!("Seed: {}", world.seed);
+        println!("Params: {:?}", world.params);
+
+        Task::succeed(move || Self { world })
     }
 
     fn draw(&mut self, frame: &mut Frame, _timer: &Timer) {
@@ -46,15 +55,13 @@ impl Game for Visualization {
         let mut connection_mesh = new_mesh();
         let mut center_mesh = new_mesh();
 
-        let mut world = World::from_seed(929);
-
         for x in 0..width {
             for y in 0..height {
                 let coord = (x as i64, y as i64);
                 let offset = Vector2::new(x as _, y as _);
 
-                let cell_type = *world.cell_type(coord);
-                let center = *world.center(coord);
+                let cell_type = *self.world.cell_type(coord);
+                let center = *self.world.cell_center(coord);
 
                 // draw center point of each cell
                 center_mesh.fill(
@@ -74,7 +81,7 @@ impl Game for Visualization {
                 };
 
                 // find voronoi shape, and process it
-                let Voronoi(poly) = world.voronoi(coord);
+                let Voronoi(poly) = self.world.voronoi(coord);
                 let mut polyline = poly.iter().map(|v| v + offset).map(p).collect::<Vec<_>>();
 
                 // fill the shape transparently
@@ -92,9 +99,9 @@ impl Game for Visualization {
                 voronoi_mesh.stroke(Shape::Polyline { points: polyline }, poly_color, 0.05);
 
                 // draw links to the parent node
-                let parent = *world.parent(coord);
+                let parent = *self.world.parent(coord);
                 let parent_center =
-                    Vector2::new(parent.0 as _, parent.1 as _) + world.center(parent);
+                    Vector2::new(parent.0 as _, parent.1 as _) + self.world.cell_center(parent);
                 connection_mesh.stroke(
                     Shape::Polyline {
                         points: vec![p(offset + center), p(parent_center)],
@@ -104,9 +111,9 @@ impl Game for Visualization {
                 );
 
                 // draw connections to voronoi cells in the same group
-                let connections = world.connected(coord).clone();
+                let connections = self.world.neighbors(coord).clone();
                 for neighbor in connections {
-                    let ncenter = *world.center(neighbor);
+                    let ncenter = *self.world.cell_center(neighbor);
 
                     let from = center + offset;
                     let to = ncenter + Vector2::new(neighbor.0 as _, neighbor.1 as _);

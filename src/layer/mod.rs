@@ -1,3 +1,4 @@
+use crate::map::Map;
 use rand::prelude::*;
 use rand_pcg::Pcg64;
 use std::collections::*;
@@ -41,10 +42,11 @@ macro_rules! layer_world {
 
             $(
                 $(#[$layer_meta])*
-                #[allow(unused)]
                 pub fn $layer_name(&mut $self, $coord_arg: $coord_ty) -> &$layer_ty {
                     if !$self.$layer_name.contains_key(&$coord_arg) {
-                        let val = $layer_impl;
+                        #[allow(unused_mut)]
+                        let mut implementation = || { $layer_impl };
+                        let val = implementation();
                         $self.$layer_name.insert($coord_arg, val);
                     }
                     $self.$layer_name.get(&$coord_arg).unwrap()
@@ -133,10 +135,12 @@ pub enum CellType {
 
 layer_world!(World {
 
-    /// Find the center of each voronoi cell
-    fn center(self, coords: ChunkCoord) -> Vector2 {{
+    /// Find the center of each the voronoi cell at a chunk
+    fn cell_center(self, coords: ChunkCoord) -> Vector2 {{
         let mut rng = self.chunk_layer_rng(coords, 0);
-        let randomness = 0.99 / (2.0f32).sqrt();
+
+        // so that edges of voronoi cells don't go over their neighbors bounds
+        let randomness = 0.97 / (2.0f32).sqrt();
         let map = |v: f32| randomness * v + (1.0 - randomness) * 0.5;
         Vector2::new(map(rng.gen()), map(rng.gen()))
     }}
@@ -146,9 +150,9 @@ layer_world!(World {
         let (x, y) = coords;
 
         // center of this voronoi cell
-        let center = *self.center(coords);
+        let center = *self.cell_center(coords);
 
-        // centers of surrounding voronoi cells
+        // centers of surrounding voronoi cells relative to this cells origin (not center)
         let mut surrounding = Vec::with_capacity(8);
 
         for nx in (x-1)..=(x+1) {
@@ -156,16 +160,10 @@ layer_world!(World {
                 let neighbor = (nx, ny);
                 if neighbor != coords {
                     let cell_offset = Vector2::new((nx-x) as _, (ny-y) as _);
-                    surrounding.push(cell_offset + self.center(neighbor).clone());
+                    surrounding.push(cell_offset + self.cell_center(neighbor).clone());
                 }
             }
         }
-
-        // sort surrounding based on angle around center point
-        surrounding.sort_by(|p, q| {
-            let angle = |p: &Vector2| (p.x - center.x).atan2(p.y - center.y);
-            angle(p).partial_cmp(&angle(q)).unwrap()
-        });
 
         // lines in the middle between this cells center and the neighbors cells center
         let mut lines = Vec::with_capacity(8);
@@ -181,6 +179,9 @@ layer_world!(World {
             }
         }
 
+        // find vertices of voronoi polygon, by starting with a point on the edge of the polygon,
+        // and then tracing along the polygon counterclockwise, while always choosing the closest
+        // intersecting line
         let mut vertices = Vec::new();
 
         let mut tracer = 0.5 * (center + surrounding[closest]);
@@ -202,7 +203,7 @@ layer_world!(World {
                 }
                 if let Some(inter) = trace_line.intersection(&line) {
                     if dir.dot(&(inter - tracer)) < 0.0 {
-                        // the intersection is behind
+                        // the intersection is behind us
                         continue;
                     }
 
@@ -244,11 +245,10 @@ layer_world!(World {
         Voronoi(vertices)
     }}
 
-    /// Adjacent Voronoi cells
-    fn adjacency(self, coords: ChunkCoord) -> Adjacency {{
+    /// Adjacent Voronoi cells, regardless what type they have
+    fn adjacent(self, coords: ChunkCoord) -> Adjacency {{
         let (x, y) = coords;
         let Voronoi(shape) = self.voronoi(coords).clone();
-        let center = self.center(coords).clone();
 
         let mut neighbors = Vec::new();
 
@@ -260,7 +260,6 @@ layer_world!(World {
                 }
 
                 let offset = Vector2::new((nx-x) as _, (ny-y) as _);
-                let ncenter = offset + self.center(n);
 
                 let Voronoi(nshape) = self.voronoi(n).clone();
 
@@ -275,19 +274,16 @@ layer_world!(World {
                     }
                 }
 
-                if corners > 0 && *self.cell_type(n) != CellType::Ocean {
+                if corners > 0 {
                     neighbors.push(n);
                 }
             }
         }
 
-        if *self.cell_type(coords) == CellType::Ocean {
-            Vec::new()
-        } else {
-            neighbors
-        }
+        neighbors
     }}
 
+    /// Cell type of the chunk, based off the probabilities in the params
     fn cell_type(self, coords: ChunkCoord) -> CellType {{
         let mut rng = self.chunk_layer_rng(coords, 3);
         let val = rng.gen::<f32>();
@@ -300,11 +296,15 @@ layer_world!(World {
         }
     }}
 
-    /// Searches the closest 'strong' Cell
+    /// Searches the closest 'strong' Cell over land connections
     ///
     /// If it finds one within reach, that strong cell is returned,
     /// otherwise the cell itself is returned
     fn parent(self, coords: ChunkCoord) -> ChunkCoord {{
+        if *self.cell_type(coords) == CellType::Ocean {
+            return coords;
+        }
+
         let mut strong_cell = coords;
 
         let mut q = VecDeque::new();
@@ -318,22 +318,25 @@ layer_world!(World {
                 break;
             }
             if dist < self.params.reach {
-                let adj = self.adjacency(cell);
+                let adj = self.adjacent(cell).clone();
                 for neighbor in adj {
-                    if !visited.contains(neighbor) {
-                        q.push_back((dist+1, *neighbor));
-                        visited.insert(*neighbor);
+                    if !visited.contains(&neighbor) && *self.cell_type(neighbor) != CellType::Ocean {
+                        q.push_back((dist+1, neighbor));
+                        visited.insert(neighbor);
                     }
+
                 }
             }
         }
         strong_cell
     }}
 
-    /// list of neighbors that are connected to this cell
-    fn connected(self, coords: ChunkCoord) -> Adjacency {{
+    /// list of land neighbors that are connected to this cell
+    ///
+    /// If the cell is ocean, itself is returned
+    fn neighbors(self, coords: ChunkCoord) -> Adjacency {{
         let mut connected = Vec::new();
-        let neighbors = self.adjacency(coords).clone();
+        let neighbors = self.adjacent(coords).clone();
         let parent = *self.parent(coords);
         for n in neighbors.iter() {
             if *self.parent(*n) == parent {
@@ -341,6 +344,31 @@ layer_world!(World {
             }
         }
         connected
+    }}
+
+    fn heightmap(self, coords: ChunkCoord) -> Map {{
+        assert_eq!(*self.cell_type(coords), CellType::Strong);
+        let (x, y) = coords;
+
+        let (min, max, shapes) = self.island_geometry(coords);
+        let chunk_width = max.x - min.x;
+        let chunk_height = max.y - min.y;
+
+        let scale = self.params.cell_size;
+        let real_width = (chunk_width + 1.0) as usize * scale;
+        let real_height = (chunk_height + 1.0) as usize * scale;
+
+        let shapes = shapes
+            .into_iter()
+            .map(
+                |Voronoi(shape)|
+                shape.into_iter().map(|v| (v - min) * scale as f32).collect::<Vec<_>>()
+            )
+            .collect::<Vec<_>>();
+
+        // TODO find enclosed oceans
+
+        todo!()
     }}
 });
 
@@ -352,5 +380,42 @@ impl World {
         let chunk_mod = x | y;
         let seed = (self.seed ^ chunk_mod) + layer;
         Pcg64::seed_from_u64(seed)
+    }
+
+    fn island_geometry(&mut self, coords: ChunkCoord) -> (Vector2, Vector2, Vec<Voronoi>) {
+        let (x, y) = coords;
+
+        let mut min = Vector2::new(x as _, y as _);
+        let mut max = min;
+        let mut shapes = Vec::new();
+
+        let mut visited = HashSet::new();
+        let mut queue = VecDeque::new();
+        visited.insert(coords);
+        queue.push_back(coords);
+
+        while let Some(cell) = queue.pop_front() {
+            let (nx, ny) = cell;
+            let Voronoi(shape) = self.voronoi(cell);
+            shapes.push(Voronoi(shape.clone()));
+            let offset = Vector2::new(nx as _, ny as _);
+
+            for vertex in shape {
+                let vertex = vertex + offset;
+                min.x = min.x.min(vertex.x);
+                min.y = min.y.min(vertex.y);
+                max.x = max.x.max(vertex.x);
+                max.y = max.y.max(vertex.y);
+            }
+
+            for n in self.neighbors(cell) {
+                if !visited.contains(n) {
+                    queue.push_back(*n);
+                    visited.insert(*n);
+                }
+            }
+        }
+
+        (min, max, shapes)
     }
 }

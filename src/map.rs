@@ -6,7 +6,7 @@ use std::ops::*;
 /// Generic matrix type with a fixed width and heigth that holds floats.
 ///
 /// It can be used to store heightmaps, wetness or other kinds of maps of a terrain.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Map(Vec<Vec<f32>>);
 
 impl Map {
