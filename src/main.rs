@@ -1,3 +1,5 @@
+use rand;
+use rand::prelude::*;
 use std::fs::File;
 
 mod flow;
@@ -11,7 +13,9 @@ mod simplex;
 mod water_terrain;
 
 fn main() {
-    let mut world = layer::World::from_seed(0);
+    let seed = rand::thread_rng().gen::<u64>();
+    println!("Using seed {}", seed);
+    let mut world = layer::World::from_seed(seed);
     let mut x = 0;
     let root = loop {
         if *world.cell_type((x, 0)) == layer::CellType::Ocean {

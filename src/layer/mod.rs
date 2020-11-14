@@ -113,7 +113,7 @@ impl Eq for WorldParams {}
 impl Default for WorldParams {
     fn default() -> Self {
         Self {
-            cell_size: 200,
+            cell_size: 300,
             strong_prob: 0.1,
             weak_prob: 0.4,
             reach: 5,
@@ -347,8 +347,8 @@ layer_world!(World {
     }}
 
     fn heightmap(self, coords: ChunkCoord) -> Map {{
-        if *self.cell_type(coords) != CellType::Strong {
-            // only calculate heightmap for Strong "root" cells
+        if *self.parent(coords) != coords {
+            // only calculate heightmap for root cells
             return Map::new(0, 0);
         }
         let (x, y) = coords;
@@ -421,20 +421,22 @@ layer_world!(World {
 
         let mut rng = self.chunk_layer_rng(coords, 4);
         let seed = vec![0; 10].into_iter().map(|_| rng.gen()).collect();
-        let mut noise = crate::simplex::simplex_map(real_width, real_height, (min.x, min.y), 0.01, seed);
+        let mut noise = crate::simplex::simplex_map(real_width, real_height, (min.x, min.y), 1.0 / fscale, seed);
 
-        let edge_scaling = polygon_scaling(real_width, real_height, shapes, oceans);
+        let mut edge_scaling = polygon_scaling(real_width, real_height, shapes, oceans);
         noise.scale(&edge_scaling);
 
         let water_range = 6;
-        let ocean_height = 0.15;
+        let ocean_height = 0.2;
 
         let targets = crate::flow::find_targets(&noise, water_range);
         let mut river_map = crate::river::create_flow_map(&noise, &targets);
         let lake_map = crate::lake::lake_map(&noise, &river_map, &targets, ocean_height);
         river_map.map(|h| h.powf(0.45));
         let water_terrain = crate::water_terrain::create_heightmap(&river_map, &lake_map);
+
         water_terrain
+        //edge_scaling
     }}
 });
 
@@ -446,44 +448,21 @@ fn polygon_scaling(
 ) -> Map {
     use crate::map::Point;
 
-    let slope = 0.03;
     let mut map = Map::new(width, height);
 
     let ocean_height = 1e-6;
     let mut queue = BinaryHeap::new();
 
-    for x in 0..width {
-        queue.push(Point {
-            x,
-            y: 0,
-            z: ocean_height,
-        });
-        queue.push(Point {
-            x,
-            y: height - 1,
-            z: ocean_height,
-        });
-    }
+    let mut nearest_shore = vec![vec![(0, 0); height]; width];
 
-    for y in 1..(height - 1) {
-        queue.push(Point {
-            x: 0,
-            y,
-            z: ocean_height,
-        });
-        queue.push(Point {
-            x: width - 1,
-            y,
-            z: ocean_height,
-        });
-    }
+    let sea = (0..width).flat_map(|x| vec![(x, 0), (x, height - 1)]);
+    let sea = sea.chain((0..height).flat_map(|y| vec![(0, y), (width - 1, y)]));
+    let sea = sea.chain(oceans);
 
-    for &(x, y) in oceans.iter() {
-        queue.push(Point {
-            x,
-            y,
-            z: ocean_height,
-        });
+    for (x, y) in sea {
+        queue.push(Point { x, y, z: 0.0 });
+        nearest_shore[x][y] = (x, y);
+        map[(x, y)] = 0.0;
     }
 
     let inside = |a: Vector2, b: Vector2, c: Vector2| {
@@ -513,35 +492,56 @@ fn polygon_scaling(
     };
 
     while let Some(point) = queue.pop() {
-        let Point { x, y, z } = point;
+        let Point { x, y, z: dist } = point;
         if map[(x, y)] >= ocean_height {
             // already edited at that point
             continue;
         }
 
-        map[(x, y)] = z;
+        let dist2 = |x: usize, y: usize, shore: (usize, usize)| {
+            let (nx, ny) = shore;
+            let dx = x as f32 - nx as f32;
+            let dy = y as f32 - ny as f32;
+            dx * dx + dy * dy
+        };
+
+        map[(x, y)] = dist + ocean_height;
 
         let from = |x| if x > 0 { x - 1 } else { x };
         let to = |x, bound| if x < bound - 1 { x + 1 } else { x };
 
         for dx in from(x)..=to(x, width) {
             for dy in from(y)..=to(y, height) {
-                if map[(dx, dy)] <= 0.0 {
-                    // increase slope for diagonal entries, as more distance is covered
-                    let slope = if dx != x && dy != y {
-                        slope * 2.0f32.sqrt()
-                    } else {
-                        slope
-                    };
-
-                    let inc_z = (z + slope).min(1.0);
-                    let z = if in_polygon(dx, dy) { inc_z } else { z };
-                    queue.push(Point { x: dx, y: dy, z });
+                if map[(dx, dy)] > 0.0 {
+                    continue;
+                }
+                if in_polygon(dx, dy) {
+                    let initial_dist = dist2(dx, dy, nearest_shore[dx][dy]);
+                    let shore = nearest_shore[x][y];
+                    let new_dist = dist2(dx, dy, shore);
+                    if new_dist < initial_dist {
+                        nearest_shore[dx][dy] = shore;
+                        queue.push(Point {
+                            x: dx,
+                            y: dy,
+                            z: new_dist,
+                        });
+                    }
+                } else {
+                    nearest_shore[dx][dy] = (dx, dy);
+                    queue.push(Point {
+                        x: dx,
+                        y: dy,
+                        z: 0.0,
+                    });
                 }
             }
         }
     }
 
+    let shoreline = (100f32).powf(2.0);
+    map.map(|v| if v >= shoreline { 1.0 } else { v / shoreline });
+    map.map(|v| 0.9 * v + 0.1);
     map.map(|v| (((v - 0.5) * std::f32::consts::PI).sin() + 1.0) * 0.5);
 
     map
