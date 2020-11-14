@@ -198,7 +198,7 @@ fn check_dp_solution() {
     use crate::simplex::*;
 
     let size = 128;
-    let map = simplex_map(size, size);
+    let map = scaled_simplex_map(size, size);
     let range = 6;
     let targets = find_targets(&map, range);
     let circle = |x, y| x * x + y * y < (range * range) as isize;
