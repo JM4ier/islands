@@ -136,7 +136,7 @@ layer_world!(World {
     /// Find the center of each voronoi cell
     fn center(self, coords: ChunkCoord) -> Vector2 {{
         let mut rng = self.chunk_layer_rng(coords, 0);
-        let randomness = 0.9;
+        let randomness = 0.99 / (2.0f32).sqrt();
         let map = |v: f32| randomness * v + (1.0 - randomness) * 0.5;
         Vector2::new(map(rng.gen()), map(rng.gen()))
     }}
@@ -146,7 +146,7 @@ layer_world!(World {
         let (x, y) = coords;
 
         // center of this voronoi cell
-        let center = self.center(coords).clone();
+        let center = *self.center(coords);
 
         // centers of surrounding voronoi cells
         let mut surrounding = Vec::with_capacity(8);
@@ -167,41 +167,78 @@ layer_world!(World {
             angle(p).partial_cmp(&angle(q)).unwrap()
         });
 
-        // edge lines of the voronoi cell
-        // note that there can be unneeded lines in this list which are covered by other lines
-        let mut lines = surrounding.iter().map(|p| Line2::dividing_mid(center.clone(), p)).collect::<Vec<_>>();
+        // lines in the middle between this cells center and the neighbors cells center
+        let mut lines = Vec::with_capacity(8);
+        for i in 0..surrounding.len() {
+            lines.push(Line2::dividing_mid(&center, &surrounding[i]));
+        }
 
-        let mut needs_pass = true;
-        while needs_pass {
-            needs_pass = false;
-            let mut i = 0;
-            while i < lines.len() {
-                let prev = (i + lines.len() - 1) % lines.len();
-                let next = (i + 1) % lines.len();
-                if let Some(inter) = lines[prev].intersection(&lines[next]) {
-                    let a = (center - lines[i].a).normalize();
-                    let b = (inter - lines[i].a).normalize();
-                    let c = (inter - center).normalize();
-
-                    if a.dot(&b) > 0.0 && a.dot(&c) < 0.0 {
-                        // acute angle -> line segment i is not needed
-                        lines.remove(i);
-                        needs_pass = true;
-                        continue;
-                    }
-
-                }
-
-                i += 1;
+        // find closest side that is surely on the polygon
+        let mut closest = 0;
+        for i in 0..surrounding.len() {
+            if (surrounding[i] - center).magnitude() < (surrounding[closest] - center).magnitude() {
+                closest = i;
             }
         }
 
-        // find the vertex list as intersections of adjacent lines
-        let mut vertices = Vec::with_capacity(lines.len());
-        for i in 0..lines.len() {
-            let next = (i+1) % lines.len();
-            let vertex = lines[i].intersection(&lines[next]).unwrap();
-            vertices.push(vertex);
+        let mut vertices = Vec::new();
+
+        let mut tracer = 0.5 * (center + surrounding[closest]);
+        let dir = surrounding[closest] - center;
+        // rotate 90 degrees counterclockwise to point in the direction of the polygon side
+        let mut dir = Vector2::new(-dir.y, dir.x).normalize();
+        let mut idx = closest;
+        let mut prev_idx = surrounding.len();
+
+        loop {
+            let trace_line = Line2::from_base_dir(tracer, dir);
+
+            // find next edge point
+            let mut next = None;
+            let mut next_idx = 0;
+            for (i, line) in lines.iter().enumerate() {
+                if i == idx || i == prev_idx {
+                    continue;
+                }
+                if let Some(inter) = trace_line.intersection(&line) {
+                    if dir.dot(&(inter - tracer)) < 0.0 {
+                        // the intersection is behind
+                        continue;
+                    }
+
+                    match next {
+                        None => {
+                            next = Some(inter);
+                            next_idx = i;
+                        },
+                        Some(n) => {
+                            if (n - tracer).magnitude() > (inter - tracer).magnitude() {
+                                next = Some(inter);
+                                next_idx = i;
+                            }
+                        }
+                    }
+                }
+            }
+
+            let next = next.unwrap();
+            if vertices.is_empty() {
+                vertices.push(next);
+            } else if (vertices[0] - next).magnitude() > 0.0001 {
+                vertices.push(next);
+            } else {
+                break;
+            }
+
+            tracer = next;
+            let perp_dir = Vector2::new(-dir.y, dir.x);
+            let mut next_dir = (lines[next_idx].b - lines[next_idx].a).normalize();
+            if perp_dir.dot(&next_dir) < 0.0 {
+                next_dir = -next_dir;
+            }
+            dir = next_dir;
+            prev_idx = idx;
+            idx = next_idx;
         }
 
         Voronoi(vertices)

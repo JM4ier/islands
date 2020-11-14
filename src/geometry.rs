@@ -30,7 +30,7 @@ impl Line2 {
         Self::new(base, base + dir)
     }
 
-    pub fn dividing_mid(a: Vector2, b: &Vector2) -> Self {
+    pub fn dividing_mid(a: &Vector2, b: &Vector2) -> Self {
         let mid = 0.5 * (a + b);
         let perp_dir = a - b;
         let dir = Vector2::new(-perp_dir.y, perp_dir.x);
