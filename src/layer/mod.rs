@@ -1,4 +1,3 @@
-#![allow(unused)]
 use rand::prelude::*;
 use rand_pcg::Pcg64;
 use std::collections::*;
@@ -42,6 +41,7 @@ macro_rules! layer_world {
 
             $(
                 $(#[$layer_meta])*
+                #[allow(unused)]
                 pub fn $layer_name(&mut $self, $coord_arg: $coord_ty) -> &$layer_ty {
                     if !$self.$layer_name.contains_key(&$coord_arg) {
                         let val = $layer_impl;
