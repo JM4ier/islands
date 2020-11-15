@@ -16,18 +16,52 @@ fn main() {
     let seed = rand::thread_rng().gen::<u64>();
     println!("Using seed {}", seed);
     let mut world = layer::World::from_seed(seed);
-    let mut x = 0;
-    let root = loop {
-        if *world.cell_type((x, 0)) == layer::CellType::Ocean {
-            x += 1;
-        } else {
-            break *world.parent((x, 0));
+
+    let (mut minx, mut maxx, mut miny, mut maxy) = (0, 0, 0, 0);
+    let cells = 8;
+
+    for x in 0..cells {
+        for y in 0..cells {
+            if *world.cell_type((x, y)) != layer::CellType::Ocean {
+                let parent = *world.parent((x, y));
+                let ((x1, y1), heightmap) = world.heightmap(parent);
+
+                let x2 = x1 + heightmap.width() as i64;
+                let y2 = y1 + heightmap.height() as i64;
+
+                minx = minx.min(*x1);
+                miny = miny.min(*y1);
+                maxx = maxx.max(x2);
+                maxy = maxy.max(y2);
+            }
         }
-    };
-    let heightmap = world.heightmap(root);
+    }
+
+    let width = (maxx - minx) as usize;
+    let height = (maxy - miny) as usize;
+
+    let mut worldmap = map::Map::new(width, height);
+
+    for x in 0..cells {
+        for y in 0..cells {
+            if *world.parent((x, y)) == (x, y) && *world.cell_type((x, y)) != layer::CellType::Ocean
+            {
+                let ((offset_x, offset_y), heightmap) = world.heightmap((x, y));
+                let offset_x = (offset_x - minx) as usize;
+                let offset_y = (offset_y - miny) as usize;
+
+                worldmap.binary_op_at(
+                    heightmap,
+                    |a, b| a + b,
+                    (offset_x, offset_y),
+                    (offset_x + heightmap.width(), offset_y + heightmap.height()),
+                );
+            }
+        }
+    }
+
     let heightmap_file = File::create("heightmap.png").unwrap();
-    heightmap.export_image(heightmap_file).unwrap();
-    //layer::vis::run_visualization().unwrap();
+    worldmap.export_image(heightmap_file).unwrap();
 }
 
 #[allow(unused)]

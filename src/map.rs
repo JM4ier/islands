@@ -37,29 +37,41 @@ impl Map {
         }
     }
 
-    /// scales this map with the other map by multiplying each entry
-    ///
-    /// `same` and `other` need to have the same dimensions
-    pub fn scale(&mut self, other: &Map) {
-        let (w, h) = (self.width(), self.height());
-        assert_eq!(w, other.width());
-        assert_eq!(h, other.height());
+    /// applies a binary operation between this map and the other map
+    pub fn binary_op<F: FnMut(f32, f32) -> f32>(&mut self, other: &Map, mut op: F) {
+        let w = self.width().min(other.width());
+        let h = self.height().min(other.height());
 
         for x in 0..w {
             for y in 0..h {
-                self[(x, y)] *= other[(x, y)];
+                self[(x, y)] = op(self[(x, y)], other[(x, y)]);
             }
         }
     }
 
-    pub fn add(&mut self, other: &Map) {
-        let (w, h) = (self.width(), self.height());
-        assert_eq!(w, other.width());
-        assert_eq!(h, other.height());
+    /// applies a binary operation to this map at a specified offset
+    ///
+    /// `same` and `other` don't need to have the same dimensions
+    pub fn binary_op_at<F: FnMut(f32, f32) -> f32>(
+        &mut self,
+        other: &Map,
+        mut op: F,
+        from: (usize, usize),
+        to: (usize, usize),
+    ) {
+        let (from_x, from_y) = from;
+        let (to_x, to_y) = to;
+        let to_x = to_x.min((from_x + other.width()).min(self.width()));
+        let to_y = to_y.min((from_y + other.height()).min(self.height()));
 
-        for x in 0..w {
-            for y in 0..h {
-                self[(x, y)] += other[(x, y)];
+        println!(
+            "Applying binary op from ({}, {}) to ({}, {})",
+            from_x, from_y, to_x, to_y
+        );
+
+        for x in from_x..to_x {
+            for y in from_y..to_y {
+                self[(x, y)] = op(self[(x, y)], other[(x - from_x, y - from_y)]);
             }
         }
     }

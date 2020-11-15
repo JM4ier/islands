@@ -346,10 +346,10 @@ layer_world!(World {
         connected
     }}
 
-    fn heightmap(self, coords: ChunkCoord) -> Map {{
+    fn heightmap(self, coords: ChunkCoord) -> ((i64, i64), Map) {{
         if *self.parent(coords) != coords {
             // only calculate heightmap for root cells
-            return Map::new(0, 0);
+            return ((0, 0), Map::new(1, 1));
         }
         let (x, y) = coords;
 
@@ -399,6 +399,8 @@ layer_world!(World {
         let real_width = 1 + (chunk_width * fscale) as usize;
         let real_height = 1 + (chunk_height * fscale) as usize;
 
+        let offset = ((min.x * fscale) as i64, (min.y * fscale) as i64);
+
         let mapping = |v: Vector2| (v - min) * fscale;
 
         let shapes = shapes
@@ -424,7 +426,7 @@ layer_world!(World {
         let mut noise = crate::simplex::simplex_map(real_width, real_height, (min.x, min.y), 1.5 / fscale, seed);
 
         let mut edge_scaling = polygon_scaling(real_width, real_height, shapes, oceans);
-        noise.scale(&edge_scaling);
+        noise.binary_op(&edge_scaling, |a, b| a * b);
 
         let water_range = 6;
         let ocean_height = 0.2;
@@ -435,8 +437,7 @@ layer_world!(World {
         river_map.map(|h| h.powf(0.45));
         let water_terrain = crate::water_terrain::create_heightmap(&river_map, &lake_map);
 
-        water_terrain
-        //edge_scaling
+        (offset, water_terrain)
     }}
 });
 
