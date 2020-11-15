@@ -18,7 +18,7 @@ fn main() {
     let mut world = layer::World::from_seed(seed);
 
     let (mut minx, mut maxx, mut miny, mut maxy) = (0, 0, 0, 0);
-    let cells = 8;
+    let cells = 4;
 
     for x in 0..cells {
         for y in 0..cells {

@@ -113,10 +113,10 @@ impl Eq for WorldParams {}
 impl Default for WorldParams {
     fn default() -> Self {
         Self {
-            cell_size: 300,
+            cell_size: 500,
             strong_prob: 0.1,
-            weak_prob: 0.4,
-            reach: 5,
+            weak_prob: 0.5,
+            reach: 4,
         }
     }
 }
@@ -426,6 +426,7 @@ layer_world!(World {
         let mut noise = crate::simplex::simplex_map(real_width, real_height, (min.x, min.y), 1.5 / fscale, seed);
 
         let mut edge_scaling = polygon_scaling(real_width, real_height, shapes, oceans);
+        //noise.binary_op(&edge_scaling, |a, b| a * b + 0.2 * b.powf(0.2));
         noise.binary_op(&edge_scaling, |a, b| a * b);
 
         let water_range = 6;
@@ -540,12 +541,22 @@ fn polygon_scaling(
         }
     }
 
-    let shoreline = (100f32).powf(2.0);
-    map.map(|v| if v >= shoreline { 1.0 } else { v / shoreline });
-    map.map(|v| 0.9 * v + 0.1);
-    map.map(|v| (((v - 0.5) * std::f32::consts::PI).sin() + 1.0) * 0.5);
+    let smooth_radius = 30;
+    let shoreline = (80f32).powf(2.0);
+    let mask = map.clone();
+    map.map(|v| {
+        if v < smooth_radius as _ {
+            0.0
+        } else if v <= shoreline + smooth_radius as f32 {
+            (v - smooth_radius as f32) / shoreline
+        } else {
+            1.0
+        }
+    });
 
-    map
+    // map.map(|v| (((v - 0.5) * std::f32::consts::PI).sin() + 1.0) * 0.5);
+
+    map.gaussian_blur(&mask, smooth_radius)
 }
 
 impl World {

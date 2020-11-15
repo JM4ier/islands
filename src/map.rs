@@ -88,6 +88,43 @@ impl Map {
         }
         (min, max)
     }
+
+    pub fn gaussian_blur(&self, mask: &Self, radius: usize) -> Self {
+        assert!(radius >= 1);
+        let mut mat = vec![vec![0.0f32; radius]; radius];
+
+        let frad2 = (radius * radius) as f32;
+        for x in 0..radius {
+            for y in 0..radius {
+                let (fx, fy) = (x as f32, y as f32);
+                mat[x][y] =
+                    0.5 / std::f32::consts::PI / frad2 * (-(fx * fx + fy * fy) / 2.0 / frad2).exp();
+            }
+        }
+
+        let mut map = Self::new(self.width(), self.height());
+        let (w, h) = (self.width() as isize, self.height() as isize);
+
+        for x in 0..self.width() {
+            for y in 0..self.height() {
+                if mask[(x, y)] <= 1e-5 {
+                    continue;
+                }
+                let r = radius as isize - 1;
+                let (x, y) = (x as isize, y as isize);
+                for nx in (0.max(x - r))..(w.min(x + r)) {
+                    for ny in (0.max(y - r))..(h.min(y + r)) {
+                        let ex = (nx - x).abs() as usize;
+                        let ey = (ny - y).abs() as usize;
+
+                        map[(x as _, y as _)] += mat[ex][ey] * self[(nx as _, ny as _)];
+                    }
+                }
+            }
+        }
+
+        map
+    }
 }
 
 impl Map {
