@@ -396,8 +396,8 @@ layer_world!(World {
 
         let scale = self.params.cell_size;
         let fscale = scale as f32;
-        let real_width = ((chunk_width + 1.0) * fscale) as usize;
-        let real_height = ((chunk_height + 1.0) * fscale) as usize;
+        let real_width = 1 + (chunk_width * fscale) as usize;
+        let real_height = 1 + (chunk_height * fscale) as usize;
 
         let mapping = |v: Vector2| (v - min) * fscale;
 
@@ -421,7 +421,7 @@ layer_world!(World {
 
         let mut rng = self.chunk_layer_rng(coords, 4);
         let seed = vec![0; 10].into_iter().map(|_| rng.gen()).collect();
-        let mut noise = crate::simplex::simplex_map(real_width, real_height, (min.x, min.y), 1.0 / fscale, seed);
+        let mut noise = crate::simplex::simplex_map(real_width, real_height, (min.x, min.y), 1.5 / fscale, seed);
 
         let mut edge_scaling = polygon_scaling(real_width, real_height, shapes, oceans);
         noise.scale(&edge_scaling);
