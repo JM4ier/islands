@@ -28,13 +28,35 @@ impl Map {
     /// maps each entry of the map to a new value
     pub fn map<F>(&mut self, fun: F)
     where
-        F: Fn(f32) -> f32,
+        F: Send + Sync + Fn(f32) -> f32,
     {
-        for x in 0..self.width() {
-            for y in 0..self.height() {
-                self[(x, y)] = fun(self[(x, y)]);
+        self.map_coords(|_, _, h| fun(h))
+    }
+
+    /// maps each entry of the map, together with its coordinates to a new value
+    pub fn map_coords<F>(&mut self, fun: F)
+    where
+        F: Send + Sync + Fn(usize, usize, f32) -> f32,
+    {
+        let fun = &fun;
+        let width = self.width();
+
+        let threads = 16;
+        let chunk_size = width / threads;
+
+        crossbeam::scope(|s| {
+            for (cidx, chunk) in self.0.chunks_mut(chunk_size).enumerate() {
+                s.spawn(move |_| {
+                    for (coff, vec) in chunk.iter_mut().enumerate() {
+                        let x = chunk_size * cidx + coff;
+                        for y in 0..vec.len() {
+                            vec[y] = fun(x, y, vec[y]);
+                        }
+                    }
+                });
             }
-        }
+        })
+        .expect("Child thread pannicked.");
     }
 
     /// Returns the minimum and maximum value of the map

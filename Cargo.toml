@@ -9,5 +9,5 @@ edition = "2018"
 [dependencies]
 fuss = "0.2.2"
 png = "0.16.7"
-cgmath = "0.17.0"
-
+cgmath = "0.18.0"
+crossbeam = "0.8"
