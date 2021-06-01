@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::io::*;
 
 mod flow;
 mod geometry;
@@ -10,7 +11,7 @@ mod simplex;
 mod water_terrain;
 
 fn main() -> std::io::Result<()> {
-    let export_wetmap = true;
+    let export_wetmap = false;
     let export_heightmap = true;
     let export_obj = false;
 
@@ -43,9 +44,10 @@ fn main() -> std::io::Result<()> {
 
     if export_obj {
         log("Exporting Terrain OBJ", || {
-            let mut terrain_file = File::create("terrain.obj")?;
-            let mut writer = obj::ObjWriter::new(&mut terrain_file)?;
-            water_terrain.export_mesh(&mut writer)
+            let terrain_file = File::create("terrain.obj")?;
+            let mut buf_writer = BufWriter::new(terrain_file);
+            let mut writer = obj::ObjWriter::new(&mut buf_writer)?;
+            water_terrain.export_cube_mesh(&mut writer)
         })?;
     }
 
@@ -73,7 +75,6 @@ fn main() -> std::io::Result<()> {
 
 fn log<T, F: FnMut() -> T>(name: &'static str, mut fun: F) -> T {
     print!("{}\t", name);
-    use std::io::Write;
     std::io::stdout().lock().flush().ok();
     let start = std::time::SystemTime::now();
     let result = fun();

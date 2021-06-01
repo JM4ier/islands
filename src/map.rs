@@ -96,6 +96,41 @@ impl Map {
         Ok(())
     }
 
+    /// exports the heightmap as cube mesh
+    #[allow(unused)]
+    pub fn export_cube_mesh<W: Write>(&self, obj: &mut ObjWriter<W>) -> Result<()> {
+        let vertex = |x, y, h| Vector::new(x as _, y as _, h);
+        let low = |v: Vector| Vector::new(v.x, v.y, -100.0);
+
+        for x in 0..self.width() - 1 {
+            for y in 0..self.height() - 1 {
+                // top triangles
+
+                let h = self[(x, y)];
+                let a = vertex(x, y, h);
+                let b = vertex(x + 1, y, h);
+                let c = vertex(x + 1, y + 1, h);
+                let d = vertex(x, y + 1, h);
+
+                // top face
+                obj.triangle(&Triangle([a, b, c]))?;
+                obj.triangle(&Triangle([a, c, d]))?;
+
+                let mut side_face = |a, b| {
+                    obj.triangle(&Triangle([low(a), low(b), b]))?;
+                    obj.triangle(&Triangle([low(a), b, a]))
+                };
+
+                side_face(a, b)?;
+                side_face(b, c)?;
+                side_face(c, d)?;
+                side_face(d, a)?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// exports the heightmap as png image
     #[allow(unused)]
     pub fn export_image<W: Write>(&self, writer: W) -> Result<()> {
