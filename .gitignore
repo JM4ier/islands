@@ -3,3 +3,5 @@
 Cargo.lock
 *.png
 *.obj
+perf.data*
+*.svg
