@@ -10,7 +10,11 @@ To compile and run, use `cargo run --release`.
 The release flag is not strictly needed, but it speeds up the program a lot and doesn't take much longer to compile.
 
 # Examples
+## Heightmap
 ![Heightmap Image](meta/example-heightmap.png)
+
+## Rendered
+![Rendered Island Image](meta/example-render.png)
 
 # Performance
 Running on an i5-7600k it takes about 0.28 seconds for an 800 by 800 terrain.
