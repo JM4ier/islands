@@ -52,11 +52,6 @@ impl Map {
                     *h = fun(x, y, *h);
                 }
             });
-        //for y in 0..self.height {
-        //    for x in 0..self.width {
-        //        self[(x, y)] = fun(x, y, self[(x, y)]);
-        //    }
-        //}
     }
 
     /// Returns the minimum and maximum value of the map
@@ -71,7 +66,7 @@ impl Map {
     }
 
     #[inline(always)]
-    fn flatten_xy(&self, x: usize, y: usize) -> usize {
+    pub fn flatten_xy(&self, x: usize, y: usize) -> usize {
         x + y * self.width
     }
 }
