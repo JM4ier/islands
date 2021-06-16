@@ -31,7 +31,6 @@ pub fn find_targets(map: &Map, range: usize) -> Vec<Vec<(usize, usize)>> {
     }
 
     let threads = if width < 512 { 1 } else { num_cpus::get() };
-    let threads = 1;
     let chunk_size = width / threads;
 
     targets

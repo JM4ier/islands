@@ -9,7 +9,6 @@ mod map;
 mod obj;
 mod river;
 mod simplex;
-mod valley;
 mod water_terrain;
 
 fn main() -> std::io::Result<()> {
