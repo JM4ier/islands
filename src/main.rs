@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::*;
 
+mod draw;
 mod flow;
 mod geometry;
 mod lake;
@@ -8,6 +9,7 @@ mod map;
 mod obj;
 mod river;
 mod simplex;
+mod valley;
 mod water_terrain;
 
 fn main() -> std::io::Result<()> {
@@ -15,7 +17,7 @@ fn main() -> std::io::Result<()> {
     let export_heightmap = true;
     let export_obj = false;
 
-    let size = 800;
+    let size = 2000;
     let water_range = 6;
     let ocean_height = 20.0;
 

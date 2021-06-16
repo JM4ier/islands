@@ -1,4 +1,5 @@
 use crate::map::*;
+use rayon::prelude::*;
 
 /// finds the flow target for each position on the map and returns them in a `Vec`
 pub fn find_targets(map: &Map, range: usize) -> Vec<Vec<(usize, usize)>> {
@@ -9,7 +10,6 @@ pub fn find_targets(map: &Map, range: usize) -> Vec<Vec<(usize, usize)>> {
     let (width, height) = (map.width(), map.height());
     let mut targets = vec![vec![(0, 0); height]; width];
 
-    //let at_border = |x, y| x < range || x >= width - range || y < range || y >= height - range;
     let circle = |x, y| x * x + y * y < (range * range) as isize;
     let within_range = |x, y, (ox, oy)| circle(x as isize - ox as isize, y as isize - oy as isize);
 
@@ -23,57 +23,83 @@ pub fn find_targets(map: &Map, range: usize) -> Vec<Vec<(usize, usize)>> {
         }),
     ];
 
-    // finding targets of the left and right border positions
-    for x in (0..range).chain((width - range)..width) {
-        for y in 0..height {
-            targets[x][y] = next_target(map, x, y, &rest_points[0], true);
-        }
-    }
-
     // finding targets of the upper and lower border positions
-    for x in range..(width - range) {
+    for x in 0..width {
         for y in (0..range).chain((height - range)..height) {
             targets[x][y] = next_target(map, x, y, &rest_points[0], true);
         }
     }
 
-    // finding targets of the center, calling `next_target` as few times as possible
-    for x in range..(width - range) {
-        for y in range..(height - range) {
-            let mut lowest = f32::MAX;
-            let mut target = (x, y);
-            let mut rest_idx = 0;
+    let threads = if width < 512 { 1 } else { num_cpus::get() };
+    let threads = 1;
+    let chunk_size = width / threads;
 
-            // check if target of x neighbor can be used
-            let tx = targets[x - 1][y];
-            if within_range(x, y, tx) {
-                rest_idx += 1;
-                lowest = map[tx];
-                target = tx;
-            }
+    targets
+        .par_iter_mut()
+        .chunks(chunk_size)
+        .enumerate()
+        .for_each(|(chunk_id, mut chunk)| {
+            let chunk_offset = chunk_id * chunk_size;
 
-            // check if target of y neighbor can be used
-            let ty = targets[x][y - 1];
-            if within_range(x, y, ty) {
-                rest_idx += 2;
-                let h = map[ty];
-                if h < lowest {
-                    lowest = h;
-                    target = ty;
+            // calculate the border areas naively
+            for x in 0..range {
+                for y in 0..height {
+                    chunk[x][y] = next_target(map, x + chunk_offset, y, &rest_points[0], true);
                 }
             }
 
-            // check if there is a better minimum in the points
-            // the previous neighbors didn't reach but this point does
-            let t = next_target(map, x, y, &rest_points[rest_idx], false);
-            let h = map[t];
-            if h < lowest {
-                target = t;
+            let x_end;
+
+            if chunk_id == threads - 1 {
+                for x in chunk.len() - range..chunk.len() {
+                    for y in 0..height {
+                        chunk[x][y] = next_target(map, x + chunk_offset, y, &rest_points[0], true);
+                    }
+                }
+                x_end = chunk.len() - range;
+            } else {
+                x_end = chunk.len();
             }
 
-            targets[x][y] = target;
-        }
-    }
+            for local_x in range..x_end {
+                let x = local_x + chunk_offset;
+
+                for y in range..(height - range) {
+                    let mut lowest = f32::MAX;
+                    let mut target = (x, y);
+                    let mut rest_idx = 0;
+
+                    // check if target of x neighbor can be used
+                    let tx = chunk[local_x - 1][y];
+                    if within_range(x, y, tx) {
+                        rest_idx += 1;
+                        lowest = map[tx];
+                        target = tx;
+                    }
+
+                    // check if target of y neighbor can be used
+                    let ty = chunk[local_x][y - 1];
+                    if within_range(x, y, ty) {
+                        rest_idx += 2;
+                        let h = map[ty];
+                        if h < lowest {
+                            lowest = h;
+                            target = ty;
+                        }
+                    }
+
+                    // check if there is a better minimum in the points
+                    // the previous neighbors didn't reach but this point does
+                    let t = next_target(map, x, y, &rest_points[rest_idx], false);
+                    let h = map[t];
+                    if h < lowest {
+                        target = t;
+                    }
+
+                    chunk[local_x][y] = target;
+                }
+            }
+        });
 
     targets
 }
@@ -133,63 +159,6 @@ fn next_target(
     }
 
     (nx, ny)
-}
-
-/// Draws a line on the `map` from `(x1, y1)` to `(x2, y2)`.
-///
-/// The `fun` parameter is given to implement custom strokes, i.e. how much the values are
-/// increased given a base value. To simply draw a line with no respect to the previous values of
-/// the map, something like this can be passed as `fun`: `&|_| 1.0`.
-///
-/// The drawing is done using a generalized version of
-/// [Bresenhams' Line Algorithm](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm).
-#[inline]
-pub fn draw_line(
-    map: &mut Map,
-    x1: isize,
-    y1: isize,
-    x2: isize,
-    y2: isize,
-    fun: &dyn Fn(f32) -> f32,
-) {
-    let sign = |x| if x > 0 { 1 } else { -1 };
-
-    let dx = (x2 - x1).abs();
-    let dy = (y2 - y1).abs();
-    let sx = sign(x2 - x1);
-    let sy = sign(y2 - y1);
-
-    let (dx, dy, swap) = if dy <= dx {
-        (dx, dy, false)
-    } else {
-        (dy, dx, true)
-    };
-
-    let mut d = 2 * dy - dx;
-
-    let (mut x, mut y) = (x1, y1);
-
-    for _ in 0..dx {
-        map[(x as _, y as _)] = fun(map[(x as _, y as _)]);
-
-        while d >= 0 {
-            if swap {
-                x += sx;
-            } else {
-                y += sy;
-            }
-            d -= 2 * dx;
-        }
-
-        if swap {
-            y += sy;
-        } else {
-            x += sx;
-        }
-        d += 2 * dy;
-    }
-
-    map[(x as _, y as _)] = fun(map[(x as _, y as _)]);
 }
 
 /// Check if the efficient DP solution does find the local minimum of each point correctly

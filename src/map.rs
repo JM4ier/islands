@@ -1,4 +1,5 @@
 use crate::{geometry::*, obj::*};
+use rayon::prelude::*;
 use std::cmp::*;
 use std::io::{Error, ErrorKind, Result, Write};
 use std::ops::*;
@@ -7,22 +8,27 @@ use std::ops::*;
 ///
 /// It can be used to store heightmaps, wetness or other kinds of maps of a terrain.
 #[derive(Clone)]
-pub struct Map(Vec<Vec<f32>>);
+pub struct Map {
+    width: usize,
+    height: usize,
+    buffer: Vec<f32>,
+}
 
 impl Map {
     pub fn new(width: usize, height: usize) -> Self {
-        Self(vec![vec![0.0; height]; width])
+        Self {
+            width,
+            height,
+            buffer: vec![0.0; width * height],
+        }
     }
 
     pub fn width(&self) -> usize {
-        self.0.len()
+        self.width
     }
 
     pub fn height(&self) -> usize {
-        match self.0.last() {
-            None => 0,
-            Some(v) => v.len(),
-        }
+        self.height
     }
 
     /// maps each entry of the map to a new value
@@ -38,38 +44,35 @@ impl Map {
     where
         F: Send + Sync + Fn(usize, usize, f32) -> f32,
     {
-        let fun = &fun;
-        let width = self.width();
-
-        let threads = 16;
-        let chunk_size = width / threads;
-
-        crossbeam::scope(|s| {
-            for (cidx, chunk) in self.0.chunks_mut(chunk_size).enumerate() {
-                s.spawn(move |_| {
-                    for (coff, vec) in chunk.iter_mut().enumerate() {
-                        let x = chunk_size * cidx + coff;
-                        for y in 0..vec.len() {
-                            vec[y] = fun(x, y, vec[y]);
-                        }
-                    }
-                });
-            }
-        })
-        .expect("Child thread pannicked.");
+        self.buffer
+            .par_chunks_mut(self.width)
+            .enumerate()
+            .for_each(|(y, chunk)| {
+                for (x, h) in chunk.iter_mut().enumerate() {
+                    *h = fun(x, y, *h);
+                }
+            });
+        //for y in 0..self.height {
+        //    for x in 0..self.width {
+        //        self[(x, y)] = fun(x, y, self[(x, y)]);
+        //    }
+        //}
     }
 
     /// Returns the minimum and maximum value of the map
     pub fn minmax(&self) -> (f32, f32) {
         let mut min = std::f32::MAX;
         let mut max = std::f32::MIN;
-        for x in 0..self.width() {
-            for y in 0..self.height() {
-                min = min.min(self[(x, y)]);
-                max = max.max(self[(x, y)]);
-            }
+        for &h in self.buffer.iter() {
+            min = min.min(h);
+            max = max.max(h);
         }
         (min, max)
+    }
+
+    #[inline(always)]
+    fn flatten_xy(&self, x: usize, y: usize) -> usize {
+        x + y * self.width
     }
 }
 
@@ -161,14 +164,15 @@ impl Map {
 impl Index<(usize, usize)> for Map {
     type Output = f32;
 
-    fn index(&self, index: (usize, usize)) -> &Self::Output {
-        &self.0[index.0][index.1]
+    fn index(&self, (x, y): (usize, usize)) -> &Self::Output {
+        &self.buffer[self.flatten_xy(x, y)]
     }
 }
 
 impl IndexMut<(usize, usize)> for Map {
-    fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
-        &mut self.0[index.0][index.1]
+    fn index_mut(&mut self, (x, y): (usize, usize)) -> &mut Self::Output {
+        let idx = self.flatten_xy(x, y);
+        &mut self.buffer[idx]
     }
 }
 

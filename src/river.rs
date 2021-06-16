@@ -1,4 +1,4 @@
-use crate::{flow::*, map::*};
+use crate::{draw::*, map::*};
 
 /// Calculates the flow map of the terrain given in `map`.
 ///
