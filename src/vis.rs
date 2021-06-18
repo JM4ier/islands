@@ -28,7 +28,7 @@ impl Color {
     }
 }
 
-pub fn visualize(map: &Map, ocean: f32, out: impl Write) -> Result<()> {
+pub fn visualize(map: &Map, river: &Map, lake: &Map, ocean: f32, out: impl Write) -> Result<()> {
     let mut map = map.clone();
     map.map(|h| if h < ocean { ocean } else { h });
     let map = &map;
@@ -38,9 +38,13 @@ pub fn visualize(map: &Map, ocean: f32, out: impl Write) -> Result<()> {
     let mut buffer = vec![0u8; 3 * map.width() * map.height()];
 
     let col_ocean = Color::from([77, 77, 140]);
-    let col_default = Color::from([200; 3]);
     let col_ambient = Color([0.0; 3]);
-    let col_lines = Color([0.0; 3]);
+    let col_lines = Color([1.0, 1.0, 1.0]);
+    let col_sand0 = Color::from([164, 149, 122]);
+    let col_sand1 = Color::from([212, 214, 174]);
+    let col_default = Color::from([158, 182, 119]);
+    let col_snow0 = Color::from([160, 161, 155]);
+    let col_snow1 = Color::from([255; 3]);
 
     // inclination angle of the sun
     // the light always comes from -x -y direction
@@ -71,10 +75,20 @@ pub fn visualize(map: &Map, ocean: f32, out: impl Write) -> Result<()> {
             let light = light - (light % 0.125);
 
             let shade = 0.5 * (1.0 - light);
-            let col = if map[(x, y)] < ocean + 0.001 {
+            let height = map[(x, y)];
+            let snow_height = peak - 19.0;
+            let col = if height < ocean + 0.001 || lake[(x, y)] > 0.0 {
                 col_ocean
-            } else {
+            } else if height < ocean + 1.0 {
+                col_sand0
+            } else if height < ocean + 2.2 {
+                col_sand1
+            } else if height < snow_height {
                 col_default
+            } else if height < snow_height + 7.0 {
+                col_snow0
+            } else {
+                col_snow1
             };
 
             let col = col.mix(&col_ambient, shade);
@@ -95,7 +109,7 @@ pub fn visualize(map: &Map, ocean: f32, out: impl Write) -> Result<()> {
 fn height_line(h: f32) -> f32 {
     let h = (h + 5.0) % 10.0;
     if h < 0.8 {
-        0.3
+        0.2
     } else {
         0.0
     }

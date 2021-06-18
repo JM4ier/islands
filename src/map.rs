@@ -171,6 +171,22 @@ impl IndexMut<(usize, usize)> for Map {
     }
 }
 
+impl Add<&Map> for Map {
+    type Output = Self;
+    fn add(mut self, other: &Self) -> Self {
+        self.map_coords(|x, y, h| h + other[(x, y)]);
+        self
+    }
+}
+
+impl Mul<f32> for Map {
+    type Output = Self;
+    fn mul(mut self, fac: f32) -> Self {
+        self.map(|h| h * fac);
+        self
+    }
+}
+
 /// Single point of the map, storing its height
 #[derive(PartialEq, Debug)]
 pub struct Point {

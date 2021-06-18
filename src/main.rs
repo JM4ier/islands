@@ -73,9 +73,22 @@ fn main() -> std::io::Result<()> {
     }
 
     if export_rgb {
-        logger.do_task("Exporting Visualization", || {
+        //let targets = logger.do_task("Refinding Flow Targets", || {
+        //    flow::find_targets(&map, water_range)
+        //});
+        //let mut river_map = logger.do_task("Regenerating River Map", || {
+        //    river::create_flow_map(&map, &targets)
+        //});
+        //let lake_map = logger.do_task("Regenerating Lake Map", || {
+        //    lake::lake_map(&map, &river_map, &targets, ocean_height)
+        //});
+        logger.do_task("Creating Visualization", || {
+            let map = &water_terrain;
+            let flow = flow::find_targets(map, water_range);
+            let river = river::create_flow_map(map, &flow);
+            let lake = lake::lake_map(map, &river, &flow, ocean_height);
             let file = File::create("vis.png")?;
-            vis::visualize(&map, ocean_height, file)
+            vis::visualize(&map, &river, &lake, ocean_height + 1.0, file)
         })?;
     }
 
